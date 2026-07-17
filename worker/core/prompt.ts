@@ -250,13 +250,13 @@ function buildOfficerReminder(state?: KeeperWireState) {
     : '警員阿陽目前正在門外要求開門。每一回合的敘事都必須維持他在門外的持續壓力（敲門、隔門喊話、無線電雜訊、門縫下的影子），不得讓他消失或忘記他的存在。'
   const insideExtras = isInside
     ? `
-- 阿陽在本回合實際制服、壓制或銬住玩家時，必須在 effects.setFlags 回報 "officer_player_restrained"。
-- 玩家在屋內移動或逃向其他房間時，effects.nextSceneId 必須填入實際抵達的場景 id；阿陽帶領或押送玩家上五樓時填 "007_landlord_apartment"。`
+- 阿陽在本回合實際制服、壓制或銬住玩家時，必須在 effects.setFlags 回報 "officer_player_restrained"。`
     : ''
 
   return `## 阿陽在場提醒（每回合必讀）
 
 - ${status}${insideExtras}
+- 玩家移動、逃跑或被拖行到其他位置時，effects.nextSceneId 必須填入實際抵達的場景 id；阿陽帶領或押送玩家上五樓時（無論玩家目前在幾樓）填 "007_landlord_apartment"，且 actions 必須是五樓現場的行動。
 - 公寓已進入封鎖狀態：不得出現玩家成功離開公寓建築的敘事或選項。
 
 `

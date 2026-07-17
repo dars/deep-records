@@ -7,7 +7,7 @@ import type {
 } from '../../shared/keeper'
 import { isNegatedMovement, transitionRules } from '../config/transitions'
 import { occupationAliases } from '../generated/content'
-import { isOfficerPresent } from './officer'
+import { hasOfficerArrived } from './officer'
 import { getCurrentSanity, resolveSanityCheck } from './sanity'
 
 export function handleDeterministicSceneTransition(
@@ -16,9 +16,9 @@ export function handleDeterministicSceneTransition(
   selectedAction?: KeeperAction,
   state?: KeeperWireState,
 ): KeeperResponse | undefined {
-  // 阿陽已在現場時，移動、逃跑與追逐由模型敘事（罐頭轉場文字會忽略他），
-  // 場景切換仍由模型的 nextSceneId 經 validateNextSceneId 守門。
-  if (isOfficerPresent(state)) {
+  // 阿陽登場後（門外敲門、樓梯間對峙或已進屋），移動與逃跑一律由模型敘事——
+  // 罐頭轉場文字會忽略他的存在；場景切換仍由模型的 nextSceneId 經 validateNextSceneId 守門。
+  if (hasOfficerArrived(state)) {
     return undefined
   }
 

@@ -87,6 +87,8 @@ export function handleOfficerArrival(
     effects: {
       setFlags: {
         officer_a_yang_arrived: true,
+        // 樓梯間登場沒有門相隔，視為直接正面接觸（門外流程不適用）。
+        ...(isInStairwell ? { officer_door_opened: true } : {}),
         ...(callsPolice ? { officer_called_by_player: true } : {}),
       },
     },

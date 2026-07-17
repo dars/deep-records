@@ -13,7 +13,7 @@ import {
   sceneFallbackActions,
 } from '../config/fallbacks'
 import { endings, items, scenes } from '../generated/content'
-import { hasOfficerArrived, isOfficerPresent } from './officer'
+import { hasOfficerArrived } from './officer'
 
 export function validateKeeperResponse(
   response: KeeperResponse,
@@ -69,15 +69,6 @@ export function validateEffects(
   }
 }
 
-const fourthFloorScenes = new Set([
-  '002_friend_apartment',
-  '003_friend_apartment_livingroom',
-  '003_friend_bedroom',
-  '004_friend_kitchen',
-  '005_friend_bathroom',
-  '006_friend_balcony',
-])
-
 export function validateNextSceneId(
   nextSceneId: string | undefined,
   sceneId: string,
@@ -91,11 +82,11 @@ export function validateNextSceneId(
     return undefined
   }
 
-  // 阿陽登場後可從四樓任何房間被帶往／押送五樓，不受一般連通限制
-  // （connects_to 描述的是玩家自行移動的路徑）。
+  // 阿陽登場後，玩家可能在建築內任何位置（含逃到一樓被捕）被帶往／押送五樓，
+  // 不受一般連通限制（connects_to 描述的是玩家自行移動的路徑）。
   if (
     nextSceneId === '007_landlord_apartment' &&
-    fourthFloorScenes.has(sceneId) &&
+    sceneId !== '000_prologue' &&
     hasOfficerArrived(state)
   ) {
     return nextSceneId
@@ -139,9 +130,9 @@ export function ensureAvailableActions(
     return response
   }
 
-  // 阿陽已與玩家正面接觸（或已在五樓終局）：
-  // 備援選項改為對峙相關，不得回到「繼續調查物品」。
-  if (isOfficerPresent(state) || sceneId === '007_landlord_apartment') {
+  // 阿陽登場後整棟建築都是封鎖與對峙狀態（含五樓終局）：
+  // 備援選項改為對峙相關，不得回到「繼續調查物品／觀察入口」。
+  if (hasOfficerArrived(state) || sceneId === '007_landlord_apartment') {
     return {
       ...response,
       actions: officerPresenceFallbackActions,

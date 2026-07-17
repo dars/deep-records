@@ -261,7 +261,18 @@ import { validateNextSceneId, ensureAvailableActions } from '../worker/core/vali
 import { normalizeEffects } from '../shared/keeper'
 
 describe('場景脫鉤修復', () => {
-  it('「逃向客廳」觸發臥室→客廳轉場（阿陽未接觸時）', () => {
+  it('「逃向客廳」觸發臥室→客廳轉場（阿陽未登場時）', () => {
+    const response = handleDeterministicSceneTransition(
+      '003_friend_bedroom',
+      '拼命逃向客廳',
+      undefined,
+      { flags: {} },
+    )
+
+    expect(response?.effects?.nextSceneId).toBe('003_friend_apartment_livingroom')
+  })
+
+  it('阿陽登場後（即使僅在門外）罐頭轉場全面停用', () => {
     const response = handleDeterministicSceneTransition(
       '003_friend_bedroom',
       '拼命逃向客廳',
@@ -269,7 +280,7 @@ describe('場景脫鉤修復', () => {
       { flags: { officer_a_yang_arrived: true } },
     )
 
-    expect(response?.effects?.nextSceneId).toBe('003_friend_apartment_livingroom')
+    expect(response).toBeUndefined()
   })
 
   it('阿陽已進屋後，罐頭轉場停用（交給模型連同他的存在一起敘事）', () => {
@@ -288,15 +299,26 @@ describe('場景脫鉤修復', () => {
     expect(response).toBeUndefined()
   })
 
-  it('阿陽登場後可從任何四樓房間被押送至五樓', () => {
+  it('阿陽登場後可從建築內任何位置被押送至五樓（含一樓被捕）', () => {
     const arrived = { flags: { officer_a_yang_arrived: true } }
 
     expect(
       validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', arrived),
     ).toBe('007_landlord_apartment')
     expect(
-      validateNextSceneId('007_landlord_apartment', '004_friend_kitchen', arrived),
+      validateNextSceneId('007_landlord_apartment', '001_apartment_entrance', arrived),
     ).toBe('007_landlord_apartment')
+  })
+
+  it('樓梯間登場視為正面接觸（officer_door_opened 一併設下）', () => {
+    const response = handleOfficerArrival(
+      '002_friend_apartment',
+      '繼續檢查鐵門',
+      undefined,
+      { ...threeMilestonesState, currentSceneId: '002_friend_apartment' },
+    )
+
+    expect(response?.effects?.setFlags?.officer_door_opened).toBe(true)
   })
 
   it('阿陽未登場時，非連通場景仍不能前往五樓', () => {
