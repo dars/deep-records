@@ -48,6 +48,17 @@ const keeperResponseSchema = {
           label: { type: 'STRING' },
           beliefSignal: { type: 'STRING', enum: actionBeliefSignals },
           mythRuleId: { type: 'STRING' },
+          intent: {
+            type: 'OBJECT',
+            properties: {
+              type: {
+                type: 'STRING',
+                enum: ['move', 'leave', 'call_police', 'none'],
+              },
+              to: { type: 'STRING' },
+            },
+            required: ['type'],
+          },
         },
         required: ['id', 'label'],
       },

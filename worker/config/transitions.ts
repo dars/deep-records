@@ -58,6 +58,7 @@ export const transitionRules: TransitionRule[] = [
             : {
                 beliefSignal: 'withhold_judgment',
                 id: 'return-downstairs-for-spare-key',
+                intent: { to: '001_apartment_entrance', type: 'move' },
                 label: '先回一樓確認阿宏提過的備用鑰匙',
               },
           {
@@ -89,6 +90,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'none',
           id: 'return-to-fourth-floor-from-entrance',
+          intent: { to: '002_friend_apartment', type: 'move' },
           label: '沿著樓梯回到四樓阿宏住處門口',
         },
       ],
@@ -119,6 +121,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'step-back-to-apartment-door',
+          intent: { to: '002_friend_apartment', type: 'move' },
           label: '暫時退回玄關與門口，確認退路',
         },
       ],
@@ -144,11 +147,13 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'none',
           id: 'return-to-living-room',
+          intent: { to: '003_friend_apartment_livingroom', type: 'move' },
           label: '重新踏進玄關，回到客廳',
         },
         {
           beliefSignal: 'withhold_judgment',
           id: 'go-downstairs-from-fourth-floor',
+          intent: { to: '001_apartment_entrance', type: 'move' },
           label: '沿樓梯下樓，暫時離開四樓門口',
         },
       ],
@@ -178,6 +183,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'return-to-living-room',
+          intent: { to: '003_friend_apartment_livingroom', type: 'move' },
           label: '暫時離開臥室，回到客廳',
         },
       ],
@@ -207,6 +213,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'return-to-living-room',
+          intent: { to: '003_friend_apartment_livingroom', type: 'move' },
           label: '暫時離開廚房，回到客廳',
         },
       ],
@@ -236,6 +243,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'return-to-living-room',
+          intent: { to: '003_friend_apartment_livingroom', type: 'move' },
           label: '離開浴室，回到客廳',
         },
       ],
@@ -265,6 +273,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'return-to-kitchen',
+          intent: { to: '004_friend_kitchen', type: 'move' },
           label: '離開陽台，回到廚房',
         },
       ],
@@ -307,6 +316,7 @@ export const transitionRules: TransitionRule[] = [
         {
           beliefSignal: 'withhold_judgment',
           id: 'return-to-living-room',
+          intent: { to: '003_friend_apartment_livingroom', type: 'move' },
           label: '暫時離開廚房，回到客廳',
         },
       ],
@@ -335,6 +345,7 @@ function buildReturnToLivingRoom(): TransitionResult {
       {
         beliefSignal: 'none',
         id: 'leave-friend-apartment',
+        intent: { to: '002_friend_apartment', type: 'move' },
         label: '循原路退出租屋處',
       },
     ],

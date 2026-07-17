@@ -50,9 +50,13 @@ export function handleOfficerArrival(
   }
 
   const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+  const intent = selectedAction?.intent
   // 「離開公寓去報警」屬於離開結局路線（交給結局判定），不觸發到場。
+  const isLeaving =
+    intent?.type === 'leave' || leavingPattern.test(actionText)
   const callsPolice =
-    callsPolicePattern.test(actionText) && !leavingPattern.test(actionText)
+    intent?.type === 'call_police' ||
+    (callsPolicePattern.test(actionText) && !isLeaving)
   const arrivalDue = countSignificantInvestigations(state) >= 3
 
   if (!callsPolice && !arrivalDue) {

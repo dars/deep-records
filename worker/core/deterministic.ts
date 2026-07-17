@@ -14,20 +14,26 @@ export function handleDeterministicSceneTransition(
   state?: KeeperWireState,
 ): KeeperResponse | undefined {
   const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
-
-  if (isNegatedMovement(actionText)) {
-    return undefined
-  }
-
   const inventory = new Set(state?.inventory ?? [])
   const flags = state?.flags ?? {}
-  const rule = transitionRules.find(
-    (candidate) =>
-      candidate.from === sceneId &&
-      candidate.pattern.test(actionText) &&
-      (!candidate.requiresFlag || flags[candidate.requiresFlag] === true) &&
-      (!candidate.blockedByFlag || flags[candidate.blockedByFlag] !== true),
-  )
+  const isRuleUsable = (candidate: (typeof transitionRules)[number]) =>
+    candidate.from === sceneId &&
+    (!candidate.requiresFlag || flags[candidate.requiresFlag] === true) &&
+    (!candidate.blockedByFlag || flags[candidate.blockedByFlag] !== true)
+
+  // 選項帶有明確移動意圖時直接依目的地執行，不需要比對 label 文字。
+  // 沒有對應規則（或規則被旗標擋下）時交給模型，仍受 validateNextSceneId 守門。
+  const intent = selectedAction?.intent
+  const rule =
+    intent?.type === 'move'
+      ? transitionRules.find(
+          (candidate) => isRuleUsable(candidate) && candidate.to === intent.to,
+        )
+      : isNegatedMovement(actionText)
+        ? undefined
+        : transitionRules.find(
+            (candidate) => isRuleUsable(candidate) && candidate.pattern.test(actionText),
+          )
 
   if (!rule) {
     return undefined
@@ -75,6 +81,7 @@ export function handleDeterministicInvestigationAction(
           {
             beliefSignal: 'none',
             id: 'return-to-fourth-floor-with-spare-key',
+            intent: { to: '002_friend_apartment', type: 'move' },
             label: '收起鑰匙圈，重新上樓前往四樓阿宏住處',
           },
           {
@@ -100,6 +107,7 @@ export function handleDeterministicInvestigationAction(
         {
           beliefSignal: 'none',
           id: 'go-upstairs-with-spare-key',
+          intent: { to: '002_friend_apartment', type: 'move' },
           label: '收好備用鑰匙圈，沿樓梯前往四樓阿宏住處',
         },
         {
@@ -297,11 +305,13 @@ export function createKeeperFallbackResponse(
             {
               beliefSignal: 'none',
               id: 'enter-building-after-unanswered-call',
+              intent: { to: '002_friend_apartment', type: 'move' },
               label: '先走進公寓，沿樓梯前往四樓',
             },
             {
               beliefSignal: 'withhold_judgment',
               id: 'leave-after-unanswered-call',
+              intent: { type: 'leave' },
               label: '不再繼續介入，轉身離開公寓',
             },
           ]
@@ -319,6 +329,7 @@ export function createKeeperFallbackResponse(
             {
               beliefSignal: 'none',
               id: 'leave-after-unanswered-call',
+              intent: { type: 'leave' },
               label: '放棄等待，循原路離開公寓',
             },
           ]
@@ -430,6 +441,7 @@ export function handleScriptedInvestigation(
         {
           beliefSignal: 'withhold_judgment',
           id: 'step-back-to-apartment-door',
+          intent: { to: '002_friend_apartment', type: 'move' },
           label: '暫時退回玄關與門口，確認退路',
         },
       ],

@@ -73,7 +73,8 @@ export function buildPrompt({
       "id": "stable-action-id",
       "label": "自然語句行動",
       "beliefSignal": "none",
-      "mythRuleId": "optional-rule-id"
+      "mythRuleId": "optional-rule-id",
+      "intent": { "type": "move", "to": "target-scene-id" }
     }
   ],
   "checks": [
@@ -99,7 +100,7 @@ export function buildPrompt({
   }
 }
 3. narration 使用繁體中文、小說式敘事，一回合 2–3 段，每段 45–90 字。不要把規則、JSON 欄位、信念階段或 KP 內部判斷寫進 narration。每段必須是完整句，不得以「...」「……」「⋯」或「吹來一陣」「傳來一股」「看見一道」這類未完成語意收尾。
-4. actions 是玩家接下來能做的自然語句，不要寫成「進行某某檢定」。除非已觸發結局，或正在等待玩家立即回報既有檢定結果，否則每回合必須給 2–3 個，絕對不能在普通道具調查後回傳空陣列。
+4. actions 是玩家接下來能做的自然語句，不要寫成「進行某某檢定」。除非已觸發結局，或正在等待玩家立即回報既有檢定結果，否則每回合必須給 2–3 個，絕對不能在普通道具調查後回傳空陣列。每個 action 應標注機械意圖 intent：選項的明確目的是移動到某個連結場景時用 {"type":"move","to":"目標 scene id"}；目的是離開公寓、放棄調查回家時用 {"type":"leave"}；目的是報警時用 {"type":"call_police"}；其餘一律用 {"type":"none"}。只有在意圖明確時才標 move/leave/call_police，不確定就用 none。
 5. action.label 不可直接問「你相信神話嗎？」、「你要不要相信？」或讓玩家選擇信念立場。選項只能代表不同解釋方式與行動理由。
 6. action.beliefSignal 僅供系統使用，玩家看不到。可用值只有：none、rational_investigation、withhold_judgment、test_myth、rely_on_myth、accept_myth_cost。
 7. 自由輸入或選項被採用後，請在 observation.signal 回報你觀察到的隱藏信念訊號。可用值只有：none、rational_investigation、withhold_judgment、propose_myth、test_myth、rely_on_verified_myth、accept_myth_cost。

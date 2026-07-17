@@ -1,6 +1,7 @@
 // 對 client 傳入的請求做白名單清洗：state 完全由 client 控制，
 // 這裡負責阻止透過 state/history 欄位進行 prompt injection 或撐爆 prompt。
 import {
+  normalizeActionIntent,
   normalizeBeliefSignal,
   type BeliefStage,
   type KeeperAction,
@@ -163,9 +164,15 @@ function sanitizeSelectedAction(value: unknown): KeeperAction | undefined {
     return undefined
   }
 
+  const intent = normalizeActionIntent(action.intent)
+
   return {
     beliefSignal: normalizeBeliefSignal(action.beliefSignal),
     id: cleanInlineText(action.id, 80) ?? 'selected-action',
+    intent:
+      intent?.type === 'move'
+        ? { to: cleanInlineText(intent.to, 64) ?? '', type: 'move' }
+        : intent,
     label,
     mythRuleId: cleanInlineText(action.mythRuleId, 80),
   }

@@ -23,11 +23,44 @@ export const beliefSignals: BeliefSignal[] = [
   'accept_myth_cost',
 ]
 
+// 選項的機械意圖：點擊時 server 依此直接執行，不需要用 label 文字猜測。
+export type ActionIntent =
+  | { to: string; type: 'move' }
+  | { type: 'leave' }
+  | { type: 'call_police' }
+
 export type KeeperAction = {
   beliefSignal?: BeliefSignal
   id: string
+  intent?: ActionIntent
   label: string
   mythRuleId?: string
+}
+
+export function normalizeActionIntent(value: unknown): ActionIntent | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const intent = value as { to?: unknown; type?: unknown }
+
+  if (
+    intent.type === 'move' &&
+    typeof intent.to === 'string' &&
+    intent.to.trim()
+  ) {
+    return { to: intent.to.trim(), type: 'move' }
+  }
+
+  if (intent.type === 'leave') {
+    return { type: 'leave' }
+  }
+
+  if (intent.type === 'call_police') {
+    return { type: 'call_police' }
+  }
+
+  return undefined
 }
 
 export type BeliefObservation = {
@@ -153,6 +186,7 @@ export function normalizeActions(value: unknown): KeeperAction[] {
           typeof action.id === 'string' && action.id.trim()
             ? action.id
             : `keeper-action-${index + 1}`,
+        intent: normalizeActionIntent(action.intent),
         label: action.label,
         mythRuleId:
           typeof action.mythRuleId === 'string' && action.mythRuleId.trim()

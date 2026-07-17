@@ -44,8 +44,10 @@ export function inferEnding(
   }
 
   const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+  const isLeaving =
+    selectedAction?.intent?.type === 'leave' || leavingPattern.test(actionText)
 
-  if (!leavingPattern.test(actionText)) {
+  if (!isLeaving) {
     return undefined
   }
 

@@ -41,6 +41,7 @@ export const idolInspectionFallbackActions: KeeperAction[] = [
   {
     beliefSignal: 'none',
     id: 'leave-friend-apartment',
+    intent: { to: '002_friend_apartment', type: 'move' },
     label: '不再碰它，循原路離開租屋處',
   },
 ]
@@ -55,6 +56,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'none',
       id: 'enter-apartment-building',
+      intent: { to: '002_friend_apartment', type: 'move' },
       label: '走進公寓，尋找通往四樓的樓梯',
     },
   ],
@@ -89,6 +91,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'none',
       id: 'leave-friend-apartment',
+      intent: { to: '002_friend_apartment', type: 'move' },
       label: '循原路退出租屋處',
     },
   ],
@@ -101,6 +104,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'withhold_judgment',
       id: 'return-to-living-room',
+      intent: { to: '003_friend_apartment_livingroom', type: 'move' },
       label: '暫時離開臥室，回到客廳',
     },
   ],
@@ -113,6 +117,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'withhold_judgment',
       id: 'return-to-living-room',
+      intent: { to: '003_friend_apartment_livingroom', type: 'move' },
       label: '暫時離開廚房，回到客廳',
     },
   ],
@@ -125,6 +130,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'withhold_judgment',
       id: 'return-to-living-room',
+      intent: { to: '003_friend_apartment_livingroom', type: 'move' },
       label: '離開浴室，回到客廳',
     },
   ],
@@ -137,6 +143,7 @@ export const sceneFallbackActions: Record<string, KeeperAction[]> = {
     {
       beliefSignal: 'withhold_judgment',
       id: 'return-to-kitchen',
+      intent: { to: '004_friend_kitchen', type: 'move' },
       label: '離開陽台，回到廚房',
     },
   ],
