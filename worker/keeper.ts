@@ -33,7 +33,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-11'
+const workerVersion = 'keeper-refactor-2026-07-17-12'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -222,7 +222,7 @@ async function runModelTurn(
     body.state,
   )
 
-  return ensureAvailableActions(constrainedResponse, sceneId, playerAction)
+  return ensureAvailableActions(constrainedResponse, sceneId, playerAction, body.state)
 }
 
 function applyInferredEnding(

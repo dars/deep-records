@@ -47,6 +47,25 @@ export const idolInspectionFallbackActions: KeeperAction[] = [
   },
 ]
 
+// 阿陽已在現場（或已抵五樓終局）時的備援選項：對峙導向，不提供調查行動。
+export const officerPresenceFallbackActions: KeeperAction[] = [
+  {
+    beliefSignal: 'withhold_judgment',
+    id: 'observe-situation-carefully',
+    label: '不輕舉妄動，仔細觀察現場與對方的動作',
+  },
+  {
+    beliefSignal: 'rational_investigation',
+    id: 'talk-to-buy-time',
+    label: '開口說話，嘗試拖延時間或探詢對方意圖',
+  },
+  {
+    beliefSignal: 'withhold_judgment',
+    id: 'look-for-escape-opening',
+    label: '暗中尋找脫身或反抗的機會',
+  },
+]
+
 export const sceneFallbackActions: Record<string, KeeperAction[]> = {
   '001_apartment_entrance': [
     {

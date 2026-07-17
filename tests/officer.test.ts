@@ -256,3 +256,89 @@ describe('讀卡機設備判斷', () => {
     expect(response?.narration.join('')).toContain('資料夾')
   })
 })
+
+import { validateNextSceneId, ensureAvailableActions } from '../worker/core/validate'
+import { normalizeEffects } from '../shared/keeper'
+
+describe('場景脫鉤修復', () => {
+  it('「逃向客廳」觸發臥室→客廳轉場（阿陽未接觸時）', () => {
+    const response = handleDeterministicSceneTransition(
+      '003_friend_bedroom',
+      '拼命逃向客廳',
+      undefined,
+      { flags: { officer_a_yang_arrived: true } },
+    )
+
+    expect(response?.effects?.nextSceneId).toBe('003_friend_apartment_livingroom')
+  })
+
+  it('阿陽已進屋後，罐頭轉場停用（交給模型連同他的存在一起敘事）', () => {
+    const response = handleDeterministicSceneTransition(
+      '003_friend_bedroom',
+      '拼命逃向客廳',
+      undefined,
+      {
+        flags: {
+          officer_a_yang_arrived: true,
+          officer_entered_with_key: true,
+        },
+      },
+    )
+
+    expect(response).toBeUndefined()
+  })
+
+  it('阿陽登場後可從任何四樓房間被押送至五樓', () => {
+    const arrived = { flags: { officer_a_yang_arrived: true } }
+
+    expect(
+      validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', arrived),
+    ).toBe('007_landlord_apartment')
+    expect(
+      validateNextSceneId('007_landlord_apartment', '004_friend_kitchen', arrived),
+    ).toBe('007_landlord_apartment')
+  })
+
+  it('阿陽未登場時，非連通場景仍不能前往五樓', () => {
+    expect(
+      validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', { flags: {} }),
+    ).toBeUndefined()
+  })
+
+  it('阿陽在場時的備援選項是對峙導向，不是調查', () => {
+    const ensured = ensureAvailableActions(
+      { actions: [], checks: [], narration: ['……'] },
+      '003_friend_bedroom',
+      '呆立原地',
+      { flags: { officer_a_yang_arrived: true, officer_entered_with_key: true } },
+    )
+
+    expect(ensured.actions.length).toBeGreaterThan(0)
+    expect(ensured.actions.every((a) => !/調查|查看.*物品/.test(a.label))).toBe(true)
+  })
+
+  it('五樓的備援選項同樣是對峙導向', () => {
+    const ensured = ensureAvailableActions(
+      { actions: [], checks: [], narration: ['……'] },
+      '007_landlord_apartment',
+      '呆立原地',
+      { flags: {} },
+    )
+
+    expect(ensured.actions.some((a) => /脫身|反抗|觀察/.test(a.label))).toBe(true)
+  })
+})
+
+describe('clearFlags 解除旗標', () => {
+  it('clearFlags 合併為 setFlags 的 false 值（掙脫拘束）', () => {
+    const effects = normalizeEffects({
+      clearFlags: ['officer_player_restrained'],
+      setFlags: ['some_new_flag'],
+    })
+
+    expect(effects?.setFlags).toEqual({
+      officer_player_restrained: false,
+      some_new_flag: true,
+    })
+  })
+})

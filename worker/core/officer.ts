@@ -39,6 +39,19 @@ export function hasOfficerArrived(state?: KeeperWireState): boolean {
   return state?.flags?.officer_a_yang_arrived === true
 }
 
+// 阿陽已與玩家正面接觸（開門或持鑰匙進屋）：
+// 此後房間移動、逃跑與對峙一律交給模型敘事，罐頭轉場文字會忽略他的存在。
+export function isOfficerPresent(state?: KeeperWireState): boolean {
+  return (
+    state?.flags?.officer_door_opened === true ||
+    state?.flags?.officer_entered_with_key === true
+  )
+}
+
+export function isPlayerRestrained(state?: KeeperWireState): boolean {
+  return state?.flags?.officer_player_restrained === true
+}
+
 export function handleOfficerArrival(
   sceneId: string,
   playerAction: string,

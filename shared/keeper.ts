@@ -324,6 +324,16 @@ export function normalizeEffects(value: unknown): InvestigationEffects | undefin
         }
       : undefined
 
+  // clearFlags（旗標名稱陣列）合併為 setFlags 的 false 值：
+  // 模型的 setFlags 走陣列格式只能設 true，解除狀態（如掙脫拘束）需要這個通道。
+  const clearedFlags = normalizeStringList(effects.clearFlags)
+  const mergedSetFlags = clearedFlags
+    ? {
+        ...normalizeSetFlags(effects.setFlags),
+        ...Object.fromEntries(clearedFlags.map((flag) => [flag.trim(), false])),
+      }
+    : normalizeSetFlags(effects.setFlags)
+
   return {
     addInventory: normalizeStringList(effects.addInventory),
     sanityCheck,
@@ -334,7 +344,10 @@ export function normalizeEffects(value: unknown): InvestigationEffects | undefin
     nextSceneId: normalizeId(effects.nextSceneId),
     removeInventory: normalizeStringList(effects.removeInventory),
     sanityDelta: Number.isFinite(sanityDelta) ? sanityDelta : undefined,
-    setFlags: normalizeSetFlags(effects.setFlags),
+    setFlags:
+      mergedSetFlags && Object.keys(mergedSetFlags).length > 0
+        ? mergedSetFlags
+        : undefined,
     testedMythRuleId: normalizeId(effects.testedMythRuleId),
     verifiedMythRuleId: normalizeId(effects.verifiedMythRuleId),
   }

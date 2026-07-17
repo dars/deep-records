@@ -8,10 +8,12 @@ import type {
 } from '../../shared/keeper'
 import {
   idolInspectionFallbackActions,
+  officerPresenceFallbackActions,
   oneTimeInventoryActionPatterns,
   sceneFallbackActions,
 } from '../config/fallbacks'
 import { endings, items, scenes } from '../generated/content'
+import { hasOfficerArrived, isOfficerPresent } from './officer'
 
 export function validateKeeperResponse(
   response: KeeperResponse,
@@ -62,18 +64,41 @@ export function validateEffects(
     endingId: ending?.id,
     endingTitle: ending ? (effects.endingTitle ?? ending.title) : undefined,
     hitPointDelta: clampNumber(effects.hitPointDelta, -5, 5),
-    nextSceneId: validateNextSceneId(effects.nextSceneId, sceneId),
+    nextSceneId: validateNextSceneId(effects.nextSceneId, sceneId, state),
     sanityDelta: clampNumber(effects.sanityDelta, -10, 5),
   }
 }
 
-export function validateNextSceneId(nextSceneId: string | undefined, sceneId: string) {
+const fourthFloorScenes = new Set([
+  '002_friend_apartment',
+  '003_friend_apartment_livingroom',
+  '003_friend_bedroom',
+  '004_friend_kitchen',
+  '005_friend_bathroom',
+  '006_friend_balcony',
+])
+
+export function validateNextSceneId(
+  nextSceneId: string | undefined,
+  sceneId: string,
+  state?: KeeperWireState,
+) {
   if (!nextSceneId || !scenes[nextSceneId]) {
     return undefined
   }
 
   if (nextSceneId === sceneId) {
     return undefined
+  }
+
+  // 阿陽登場後可從四樓任何房間被帶往／押送五樓，不受一般連通限制
+  // （connects_to 描述的是玩家自行移動的路徑）。
+  if (
+    nextSceneId === '007_landlord_apartment' &&
+    fourthFloorScenes.has(sceneId) &&
+    hasOfficerArrived(state)
+  ) {
+    return nextSceneId
   }
 
   const connectsTo = scenes[sceneId]?.connectsTo ?? []
@@ -103,6 +128,7 @@ export function ensureAvailableActions(
   response: KeeperResponse,
   sceneId: string,
   playerAction: string,
+  state?: KeeperWireState,
 ): KeeperResponse {
   if (
     response.effects?.endingId ||
@@ -111,6 +137,15 @@ export function ensureAvailableActions(
     sceneId === '000_prologue'
   ) {
     return response
+  }
+
+  // 阿陽已與玩家正面接觸（或已在五樓終局）：
+  // 備援選項改為對峙相關，不得回到「繼續調查物品」。
+  if (isOfficerPresent(state) || sceneId === '007_landlord_apartment') {
+    return {
+      ...response,
+      actions: officerPresenceFallbackActions,
+    }
   }
 
   if (

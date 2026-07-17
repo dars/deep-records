@@ -287,25 +287,25 @@ export const transitionRules: TransitionRule[] = [
   {
     from: '003_friend_bedroom',
     to: '003_friend_apartment_livingroom',
-    pattern: /(?:回客廳|返回客廳|回到客廳|離開(?:臥房|臥室|房間))/,
+    pattern: /(?:回客廳|返回客廳|回到客廳|(?:逃|衝|跑|躲|退)(?:向|回|到|進)客廳|離開(?:臥房|臥室|房間))/,
     build: buildReturnToLivingRoom,
   },
   {
     from: '004_friend_kitchen',
     to: '003_friend_apartment_livingroom',
-    pattern: /(?:回客廳|返回客廳|回到客廳|離開廚房)/,
+    pattern: /(?:回客廳|返回客廳|回到客廳|(?:逃|衝|跑|躲|退)(?:向|回|到|進)客廳|離開廚房)/,
     build: buildReturnToLivingRoom,
   },
   {
     from: '005_friend_bathroom',
     to: '003_friend_apartment_livingroom',
-    pattern: /(?:回客廳|返回客廳|回到客廳|離開(?:浴室|廁所|洗手間))/,
+    pattern: /(?:回客廳|返回客廳|回到客廳|(?:逃|衝|跑|躲|退)(?:向|回|到|進)客廳|離開(?:浴室|廁所|洗手間))/,
     build: buildReturnToLivingRoom,
   },
   {
     from: '006_friend_balcony',
     to: '004_friend_kitchen',
-    pattern: /(?:回廚房|返回廚房|回到廚房|離開(?:陽台|小陽台|後陽台))/,
+    pattern: /(?:回廚房|返回廚房|回到廚房|(?:逃|衝|跑|躲|退)(?:向|回|到|進)廚房|離開(?:陽台|小陽台|後陽台))/,
     build: () => ({
       actions: [
         {

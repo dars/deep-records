@@ -105,6 +105,7 @@ const keeperResponseSchema = {
         endingId: { type: 'STRING' },
         endingTitle: { type: 'STRING' },
         setFlags: { type: 'ARRAY', items: { type: 'STRING' } },
+        clearFlags: { type: 'ARRAY', items: { type: 'STRING' } },
         testedMythRuleId: { type: 'STRING' },
         verifiedMythRuleId: { type: 'STRING' },
         nextSceneId: { type: 'STRING' },
