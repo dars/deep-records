@@ -9,7 +9,7 @@ exit_condition: 玩家返回客廳
 trigger_condition: 玩家從客廳進入朋友的臥房
 music_mood: tense
 sanity_cost: 0
-references: [character_lin_xian_hong, character_landlord, item_hidden_memory_card, item_microsd_card_reader, item_friend_laptop, sanity_rules]
+references: [character_lin_xian_hong, character_landlord, item_hidden_memory_card, item_microsd_card_reader, item_friend_laptop, item_warding_star_mark, sanity_rules]
 ---
 
 ## 感官描述（給玩家的初次印象）
@@ -82,6 +82,7 @@ references: [character_lin_xian_hong, character_landlord, item_hidden_memory_car
     - 符號的位置正對床鋪，像是「朝著睡覺的人」而不是朝著房間；如果它有任何作用，那個作用是向內的。
     - 玩家若看過記憶卡的格局圖與符號，能確認這個符號與那套彎鉤狀的體系明顯不同源；格局圖上找不到它。
     - 看過最深層掃描文件的玩家，會想起最早影像裡樑上那處相似的放射狀刻痕——同一種符號，隔著不知多少年，出現在同一個街廓。
+    - 讀過記憶卡掃描頁邊註記或阿宏筆電搜尋紀錄的玩家，會知道所有零散的來源都宣稱這個符號有「保護」的作用——雖然沒有任何來源能說出它是什麼（詳見 `item_warding_star_mark`）。
   - 無法確認的部分
     - 是阿宏讀了記憶卡後模仿刻下、更早的房客留下再由阿宏補刻，或與這一切無關的舊塗刻，本場景不揭露。
     - 它是否真的擋住過任何東西，永不確證。阿宏最終仍被帶走了——但他被帶走時，並不在這張床上。
