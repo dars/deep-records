@@ -35,10 +35,13 @@ npm run typecheck # tsc -b（app / node / worker 三個 project）
 ## Deploy
 
 ```bash
-npm run deploy    # generate + typecheck + vite build + vitest + wrangler deploy
+npm run deploy    # generate + typecheck + build + test + worker 與 Pages 一起部署
 ```
 
-正式站台與 API 皆為 `https://keeper.devlin-865.workers.dev`（`/api/keeper` 與 `/health` 走 worker，其餘路徑為 SPA 靜態資產）。`GEMINI_API_KEY` 以 `wrangler secret put GEMINI_API_KEY` 設定。
+- 正式站台：`https://deep-records.pages.dev`（Cloudflare Pages）
+- API：`https://keeper.devlin-865.workers.dev/api/keeper`（`.env.production` 已把前端 endpoint 指向這裡；CORS 只允許 pages.dev 網域）
+- worker 也同時服務一份 SPA（Workers Static Assets），作為備援入口
+- `GEMINI_API_KEY` 以 `wrangler secret put GEMINI_API_KEY` 設定
 
 ## Project Structure
 

@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "npm run generate && vitest run",
     "typecheck": "npm run generate && tsc -b",
-    "deploy": "npm run build && vitest run && wrangler deploy"
+    "deploy": "npm run build && vitest run && wrangler deploy && wrangler pages deploy dist --project-name=deep-records"
   },
   "dependencies": {
     "react": "^19.2.7",

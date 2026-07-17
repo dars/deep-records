@@ -30,16 +30,33 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-1'
+const workerVersion = 'keeper-refactor-2026-07-17-2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+// 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
+// workers.dev 上的同源請求不需要 CORS。
+function corsHeadersFor(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin')
+  const isAllowed =
+    origin === 'https://deep-records.pages.dev' ||
+    (origin?.startsWith('https://') === true &&
+      origin.endsWith('.deep-records.pages.dev'))
+
+  if (!origin || !isAllowed) {
+    return {}
+  }
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  }
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const corsHeaders = corsHeadersFor(request)
+
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders })
     }
@@ -47,15 +64,15 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname === '/health') {
-      return json({ model: geminiModel, ok: true, version: workerVersion })
+      return json({ model: geminiModel, ok: true, version: workerVersion }, 200, corsHeaders)
     }
 
     if (url.pathname !== '/api/keeper') {
-      return json({ error: 'not_found' }, 404)
+      return json({ error: 'not_found' }, 404, corsHeaders)
     }
 
     if (request.method !== 'POST') {
-      return json({ error: 'method_not_allowed' }, 405)
+      return json({ error: 'method_not_allowed' }, 405, corsHeaders)
     }
 
     if (env.KEEPER_RATE_LIMITER) {
@@ -63,14 +80,14 @@ export default {
       const { success } = await env.KEEPER_RATE_LIMITER.limit({ key: clientIp })
 
       if (!success) {
-        return json({ error: 'rate_limited', message: '請稍後再試。' }, 429)
+        return json({ error: 'rate_limited', message: '請稍後再試。' }, 429, corsHeaders)
       }
     }
 
     try {
       const body = sanitizeKeeperRequest(await request.json())
 
-      return await handleKeeperTurn(body, env)
+      return await handleKeeperTurn(body, env, corsHeaders)
     } catch (error) {
       // 詳細錯誤只進 observability log，不回傳給 client。
       console.error('keeper_failed', error instanceof Error ? error.message : error)
@@ -81,12 +98,17 @@ export default {
           message: '守密人暫時沒有回應，請稍後再試。',
         },
         500,
+        corsHeaders,
       )
     }
   },
 }
 
-async function handleKeeperTurn(body: KeeperRequestBody, env: Env): Promise<Response> {
+async function handleKeeperTurn(
+  body: KeeperRequestBody,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
   const sceneId = body.sceneId ?? body.state?.currentSceneId ?? '001_apartment_entrance'
   const playerAction = body.playerAction ?? ''
   const scene = scenes[sceneId]
@@ -98,6 +120,7 @@ async function handleKeeperTurn(body: KeeperRequestBody, env: Env): Promise<Resp
         message: `Unknown sceneId: ${sceneId}`,
       },
       400,
+      corsHeaders,
     )
   }
 
@@ -123,6 +146,8 @@ async function handleKeeperTurn(body: KeeperRequestBody, env: Env): Promise<Resp
       sceneId,
       body.state,
     ),
+    200,
+    corsHeaders,
   )
 }
 
@@ -195,10 +220,14 @@ function applyInferredEnding(
   }
 }
 
-function json(data: unknown, status = 200) {
+function json(
+  data: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+) {
   return new Response(JSON.stringify(data), {
     headers: {
-      ...corsHeaders,
+      ...extraHeaders,
       'Content-Type': 'application/json; charset=utf-8',
     },
     status,
