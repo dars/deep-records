@@ -150,3 +150,109 @@ describe('阿陽登場後的封鎖', () => {
     expect(response?.effects?.nextSceneId).toBe('001_apartment_entrance')
   })
 })
+
+import { processOfficerDoorPhase } from '../worker/core/officer'
+import { handleDeterministicInvestigationAction } from '../worker/core/deterministic'
+
+describe('阿陽門外流程狀態機', () => {
+  const arrivedFlags = { officer_a_yang_arrived: true }
+
+  it('未登場或已進門時不啟動', () => {
+    expect(
+      processOfficerDoorPhase('003_friend_apartment_livingroom', '調查木桌', undefined, {
+        flags: {},
+      }),
+    ).toBeUndefined()
+    expect(
+      processOfficerDoorPhase('003_friend_apartment_livingroom', '調查木桌', undefined, {
+        flags: { ...arrivedFlags, officer_entered_with_key: true },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('第 1 次不理：只記錄旗標，不搶佔回合', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_apartment_livingroom',
+      '不理會敲門聲，繼續調查木桌',
+      undefined,
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.preempt).toBeUndefined()
+    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+  })
+
+  it('第 2 次不理：搶佔回合加重語氣', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_apartment_livingroom',
+      '繼續搜索臥室',
+      undefined,
+      { flags: { ...arrivedFlags, officer_wait_one: true } },
+    )
+
+    expect(result?.preempt?.effects?.setFlags?.officer_knock_escalated).toBe(true)
+    expect(result?.preempt?.narration.join('')).toContain('妨礙公務')
+  })
+
+  it('第 3 次不理：拿房東鑰匙進門並要求配合', () => {
+    const result = processOfficerDoorPhase(
+      '004_friend_kitchen',
+      '躲進廚房不出聲',
+      undefined,
+      {
+        flags: {
+          ...arrivedFlags,
+          officer_knock_escalated: true,
+          officer_wait_one: true,
+        },
+      },
+    )
+
+    expect(result?.preempt?.effects?.setFlags?.officer_entered_with_key).toBe(true)
+    expect(result?.preempt?.effects?.setFlags?.officer_door_opened).toBe(true)
+    expect(result?.preempt?.narration.join('')).toContain('鑰匙')
+    expect(result?.preempt?.narration.join('')).toContain('配合')
+  })
+
+  it('玩家開門：記錄旗標並交給模型', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_apartment_livingroom',
+      '走向門口開門',
+      undefined,
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.preempt).toBeUndefined()
+    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+  })
+
+  it('「先不開門」的否定語氣視為不理會', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_apartment_livingroom',
+      '先不開門，把記憶卡藏起來',
+      undefined,
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+  })
+})
+
+describe('讀卡機設備判斷', () => {
+  it('已開啟過記憶卡檔案後，讀取不再要求尋找設備', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_bedroom',
+      '再讀一次記憶卡裡的檔案',
+      undefined,
+      {
+        flags: { memory_card_initial_files_opened: true },
+        inventory: ['item_hidden_memory_card'],
+      },
+    )
+
+    expect(
+      response?.actions.some((action) => action.id === 'find-compatible-card-reader'),
+    ).toBe(false)
+    expect(response?.narration.join('')).toContain('資料夾')
+  })
+})

@@ -18,8 +18,9 @@ export const oneTimeInventoryActionPatterns: Record<string, RegExp[]> = {
     /(?:記憶卡|micro ?sd).*(?:取得|拿起|拿走|帶走|找到|搜出|抽出|摸出)/i,
   ],
   item_microsd_card_reader: [
-    /(?:取得|拿起|拿走|帶走|找到|搜出|撿起).*(?:讀卡機|轉接器|讀取設備|card reader)/i,
-    /(?:讀卡機|轉接器|讀取設備|card reader).*(?:取得|拿起|拿走|帶走|找到|搜出|撿起)/i,
+    /(?:取得|拿起|拿走|帶走|找到|搜出|撿起|尋找).*(?:讀卡機|轉接器|讀取設備|相容設備|card reader)/i,
+    /(?:讀卡機|轉接器|讀取設備|相容設備|card reader).*(?:取得|拿起|拿走|帶走|找到|搜出|撿起)/i,
+    /尋找.*(?:讀取|micro ?sd).*設備/i,
   ],
   item_star_spawn_wooden_idol: [
     /(?:取得|拿起|拿走|帶走|搬走|抱起|撿起).*(?:木雕|雕像|觸手造型|五芒星)/,

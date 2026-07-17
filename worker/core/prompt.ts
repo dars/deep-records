@@ -59,6 +59,7 @@ export function buildPrompt({
   const checkResultsSummary = formatCheckResults(checkResults)
   const historySummary = formatHistory(history)
   const sanityReminder = buildSanityReminder(state)
+  const officerReminder = buildOfficerReminder(state)
 
   return `
 你是單人 COC 跑團遊戲《Deep Records》的守密人。
@@ -166,7 +167,7 @@ ${selectedAction ? JSON.stringify(selectedAction, null, 2) : '本次不是預設
 
 ${checkResultsSummary}
 
-${sanityReminder}## 玩家動作 / 系統階段指令
+${sanityReminder}${officerReminder}## 玩家動作 / 系統階段指令
 
 ${playerAction}
 
@@ -215,6 +216,29 @@ function formatHistory(history: TurnHistoryEntry[] | undefined) {
       return `回合 ${index + 1}：\n- 玩家行動：${entry.playerAction}\n- 守密人敘事：\n${narration}`
     })
     .join('\n\n')
+}
+
+// 阿陽在場提醒：與 SAN 提醒相同原因（低思考模式下關鍵狀態要靠近輸入尾端），
+// 防止模型在玩家不理會他時把他從敘事中淡忘。
+function buildOfficerReminder(state?: KeeperWireState) {
+  const flags = state?.flags ?? {}
+
+  if (flags.officer_a_yang_arrived !== true) {
+    return ''
+  }
+
+  const isInside =
+    flags.officer_door_opened === true || flags.officer_entered_with_key === true
+  const status = isInside
+    ? '警員阿陽目前就在屋內現場。每一回合的敘事與選項都必須考慮他的在場、視線、站位與問話，他不會離開，也不會被玩家的沉默抹除。'
+    : '警員阿陽目前正在門外要求開門。每一回合的敘事都必須維持他在門外的持續壓力（敲門、隔門喊話、無線電雜訊、門縫下的影子），不得讓他消失或忘記他的存在。'
+
+  return `## 阿陽在場提醒（每回合必讀）
+
+- ${status}
+- 公寓已進入封鎖狀態：不得出現玩家成功離開公寓建築的敘事或選項。
+
+`
 }
 
 // 放在 prompt 末端（玩家動作前）的 SAN 執行提醒：低思考模式下，

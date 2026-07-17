@@ -164,6 +164,8 @@ export function handleDeterministicInvestigationAction(
   const usesAvailableDevice =
     hasCardReader ||
     isSoftwareEngineer ||
+    // 已經成功開啟過檔案代表讀取途徑早已成立，不得再要求玩家找設備。
+    flags.memory_card_initial_files_opened === true ||
     /(?:手機|智慧型手機|筆電|電腦|micro ?sd.*槽|讀卡槽)/i.test(actionText)
 
   if (!hasMemoryCard) {

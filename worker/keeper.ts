@@ -13,7 +13,7 @@ import {
 } from './core/deterministic'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
-import { handleOfficerArrival } from './core/officer'
+import { handleOfficerArrival, processOfficerDoorPhase } from './core/officer'
 import { buildPrompt } from './core/prompt'
 import { resolveSanityEffects } from './core/sanity'
 import { sanitizeKeeperRequest } from './core/sanitize'
@@ -33,7 +33,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-10'
+const workerVersion = 'keeper-refactor-2026-07-17-11'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -127,7 +127,17 @@ async function handleKeeperTurn(
     )
   }
 
-  const response =
+  // 阿陽登場後的門外流程：催促與強制進門會搶佔回合；
+  // 開門或首次不理只需記錄旗標（合併進本回合的 effects）。
+  const doorPhase = processOfficerDoorPhase(
+    sceneId,
+    playerAction,
+    body.selectedAction,
+    body.state,
+  )
+
+  let response =
+    doorPhase?.preempt ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
     handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state) ??
     handleDeterministicSceneTransition(
@@ -151,6 +161,19 @@ async function handleKeeperTurn(
       body.character,
     ) ??
     (await runModelTurn(body, sceneId, playerAction, env))
+
+  if (doorPhase?.markFlags) {
+    response = {
+      ...response,
+      effects: {
+        ...response.effects,
+        setFlags: {
+          ...response.effects?.setFlags,
+          ...doorPhase.markFlags,
+        },
+      },
+    }
+  }
 
   return json(
     validateKeeperResponse(
