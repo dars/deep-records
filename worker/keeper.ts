@@ -11,6 +11,7 @@ import {
   handleDeterministicSceneTransition,
   handleScriptedInvestigation,
 } from './core/deterministic'
+import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
 import { handleOfficerArrival, processOfficerDoorPhase } from './core/officer'
@@ -33,7 +34,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-12'
+const workerVersion = 'keeper-refactor-2026-07-17-13'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -175,17 +176,29 @@ async function handleKeeperTurn(
     }
   }
 
-  return json(
-    validateKeeperResponse(
-      applyInferredEnding(
-        resolveSanityEffects(response, body.state),
-        sceneId,
-        playerAction,
-        body,
-      ),
+  // 信念階段由 server 累積制判定；本回合的訊號立即生效，
+  // 供見證者終局守門與結局路由（交警方分流）使用。
+  const beliefUpdate = computeBeliefUpdate(body.state, response.observation, response.effects)
+  const effectiveBody: KeeperRequestBody = {
+    ...body,
+    state: {
+      ...body.state,
+      belief: { ...body.state?.belief, stage: beliefUpdate.stage },
+    },
+  }
+
+  response = {
+    ...applyInferredEnding(
+      resolveSanityEffects(gateWitnessEnding(response, beliefUpdate.stage), body.state),
       sceneId,
-      body.state,
+      playerAction,
+      effectiveBody,
     ),
+    belief: beliefUpdate,
+  }
+
+  return json(
+    validateKeeperResponse(response, sceneId, body.state),
     200,
     corsHeaders,
   )

@@ -1,5 +1,6 @@
 import {
   normalizeActions,
+  normalizeBeliefUpdate,
   normalizeChecks,
   normalizeEffects,
   normalizeNarration,
@@ -65,6 +66,7 @@ export async function requestKeeperTurn(
 
   return {
     actions: normalizeActions(data.actions),
+    belief: normalizeBeliefUpdate(data.belief),
     checks: normalizeChecks(data.checks),
     effects: normalizeEffects(data.effects),
     narration: normalizeNarration(data.narration),

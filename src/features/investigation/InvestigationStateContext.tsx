@@ -7,6 +7,7 @@ import {
   type PropsWithChildren,
   type SetStateAction,
 } from 'react'
+import type { BeliefUpdate } from '../../../shared/keeper'
 import {
   createInitialInvestigationState,
   initialInvestigationState,
@@ -21,7 +22,7 @@ type InvestigationStateContextValue = {
   reduceInvestigationState: (
     observation?: BeliefObservation,
     effects?: InvestigationEffects,
-    options?: { visitSceneId?: string },
+    options?: { beliefUpdate?: BeliefUpdate; visitSceneId?: string },
   ) => void
   setInvestigationState: Dispatch<SetStateAction<InvestigationState>>
 }
@@ -33,58 +34,34 @@ function addUnique<T>(items: T[], nextItems: T[] = []) {
   return Array.from(new Set([...items, ...nextItems]))
 }
 
+// 信念階段由 worker 以累積制計算（worker/core/belief.ts），
+// 前端只套用 server 回傳的 beliefUpdate 並在本地保存 evidence 敘述。
+// 沒有 beliefUpdate 時（理論上不會發生）保守維持現狀，不自行推進階段。
 function updateBelief(
   state: InvestigationState,
   observation?: BeliefObservation,
-  effects?: InvestigationEffects,
+  beliefUpdate?: BeliefUpdate,
 ) {
   const belief = state.belief
-  let stage = belief.stage
-  let testedMythRules = addUnique(
-    belief.testedMythRules,
-    effects?.testedMythRuleId ? [effects.testedMythRuleId] : [],
-  )
-  const verifiedMythRules = addUnique(
-    belief.verifiedMythRules,
-    effects?.verifiedMythRuleId ? [effects.verifiedMythRuleId] : [],
-  )
   const evidence = [...belief.evidence]
-
-  if (observation?.mythRuleId && observation.signal === 'test_myth') {
-    testedMythRules = addUnique(testedMythRules, [observation.mythRuleId])
-  }
-
-  if (
-    observation?.signal === 'propose_myth' ||
-    observation?.signal === 'test_myth'
-  ) {
-    if (stage === 'skeptical') {
-      stage = 'hypothesis'
-    }
-  }
-
-  if (
-    observation?.signal === 'rely_on_myth' ||
-    observation?.signal === 'rely_on_verified_myth'
-  ) {
-    if (stage === 'skeptical' || stage === 'hypothesis') {
-      stage = 'operational'
-    }
-  }
-
-  if (observation?.signal === 'accept_myth_cost') {
-    stage = 'convinced'
-  }
 
   if (observation?.reason) {
     evidence.push(observation.reason)
   }
 
+  if (!beliefUpdate) {
+    return {
+      ...belief,
+      evidence: evidence.slice(-12),
+    }
+  }
+
   return {
     evidence: evidence.slice(-12),
-    stage,
-    testedMythRules,
-    verifiedMythRules,
+    signalLog: beliefUpdate.signalLog,
+    stage: beliefUpdate.stage,
+    testedMythRules: beliefUpdate.testedMythRules,
+    verifiedMythRules: beliefUpdate.verifiedMythRules,
   }
 }
 
@@ -92,6 +69,7 @@ export function reduceInvestigationStateValue(
   state: InvestigationState,
   observation?: BeliefObservation,
   effects?: InvestigationEffects,
+  beliefUpdate?: BeliefUpdate,
 ) {
   const nextSceneId = effects?.nextSceneId ?? state.currentSceneId
   const sanityDelta = effects?.sanityDelta ?? 0
@@ -106,7 +84,7 @@ export function reduceInvestigationStateValue(
 
   return {
     ...state,
-    belief: updateBelief(state, observation, effects),
+    belief: updateBelief(state, observation, beliefUpdate),
     currentSceneId: nextSceneId,
     discoveredClues: addUnique(state.discoveredClues, effects?.discoverClues),
     ending: effects?.endingId
@@ -179,6 +157,7 @@ export function InvestigationStateProvider({
               : currentState,
             observation,
             effects,
+            options?.beliefUpdate,
           ),
         )
       },

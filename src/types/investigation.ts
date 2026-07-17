@@ -40,6 +40,7 @@ export type InvestigatorProfile = {
 export type InvestigationState = {
   belief: {
     evidence: string[]
+    signalLog: string[]
     stage: BeliefStage
     testedMythRules: string[]
     verifiedMythRules: string[]
@@ -99,6 +100,7 @@ export function createInitialInvestigationState(
   return {
     belief: {
       evidence: [],
+      signalLog: [],
       stage: 'skeptical',
       testedMythRules: [],
       verifiedMythRules: [],

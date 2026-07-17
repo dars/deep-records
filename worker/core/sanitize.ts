@@ -87,6 +87,7 @@ function sanitizeState(value: unknown): KeeperWireState | undefined {
   const belief =
     state.belief && typeof state.belief === 'object'
       ? {
+          signalLog: cleanInlineTextList(state.belief.signalLog, 24, 120),
           stage: beliefStages.includes(state.belief.stage as BeliefStage)
             ? state.belief.stage
             : undefined,

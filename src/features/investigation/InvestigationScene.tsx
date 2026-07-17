@@ -421,6 +421,7 @@ export function InvestigationScene({
     }
 
     reduceInvestigationState(response.observation, responseEffects, {
+      beliefUpdate: response.belief,
       visitSceneId: sceneId,
     })
     setActionOptions(responseEffects.endingId ? [] : response.actions)

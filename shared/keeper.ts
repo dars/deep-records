@@ -102,8 +102,17 @@ export type KeeperCheckResult = KeeperCheck & {
   roll: number
 }
 
+// server 計算後回傳的權威信念狀態（累積制階段判定，見 worker/core/belief.ts）。
+export type BeliefUpdate = {
+  signalLog: string[]
+  stage: BeliefStage
+  testedMythRules: string[]
+  verifiedMythRules: string[]
+}
+
 export type KeeperResponse = {
   actions: KeeperAction[]
+  belief?: BeliefUpdate
   checks: KeeperCheck[]
   effects?: InvestigationEffects
   narration: string[]
@@ -118,6 +127,7 @@ export type TurnHistoryEntry = {
 export type KeeperWireState = {
   belief?: {
     evidence?: string[]
+    signalLog?: string[]
     stage?: BeliefStage
     testedMythRules?: string[]
     verifiedMythRules?: string[]
@@ -245,6 +255,27 @@ export function normalizeChecks(value: unknown): KeeperCheck[] {
       },
     ]
   })
+}
+
+const beliefStages: BeliefStage[] = ['skeptical', 'hypothesis', 'operational', 'convinced']
+
+export function normalizeBeliefUpdate(value: unknown): BeliefUpdate | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const update = value as Partial<BeliefUpdate>
+
+  if (!beliefStages.includes(update.stage as BeliefStage)) {
+    return undefined
+  }
+
+  return {
+    signalLog: normalizeStringList(update.signalLog) ?? [],
+    stage: update.stage as BeliefStage,
+    testedMythRules: normalizeStringList(update.testedMythRules) ?? [],
+    verifiedMythRules: normalizeStringList(update.verifiedMythRules) ?? [],
+  }
 }
 
 export function normalizeObservation(value: unknown): BeliefObservation | undefined {
