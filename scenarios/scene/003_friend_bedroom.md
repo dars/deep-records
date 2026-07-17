@@ -73,6 +73,7 @@ references: [character_lin_xian_hong, character_landlord, item_hidden_memory_car
 - 床頭板背面的放射狀刻痕
   - 觸發方式
     - 玩家檢查床架、床頭板背面、搬動床墊或探看床與牆之間的縫隙。
+    - 玩家翻看書桌上散落的紙張，會先發現阿宏反覆描摹同一個符號的手稿（見 `item_warding_star_mark`），進而循線找到床頭板刻痕。
     - 玩家看過記憶卡最深層掃描文件後回頭比對房內痕跡。
   - 是否需要檢定
     - 不需要。位置隱蔽但刻痕明確，找到即可辨認。

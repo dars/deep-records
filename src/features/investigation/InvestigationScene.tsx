@@ -138,6 +138,7 @@ const revealableItemIds = new Set([
   'item_friend_apartment_spare_key',
   'item_hidden_memory_card',
   'item_star_spawn_wooden_idol',
+  'item_warding_star_mark',
 ])
 
 const diceImageUrl = '/assets/images/dice20.webp'

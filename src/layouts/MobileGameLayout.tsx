@@ -32,6 +32,10 @@ const starSpawnWoodenIdolImageUrl = new URL(
   '../../scenarios/item/star_spawn_wooden_idol.webp',
   import.meta.url,
 ).href
+const wardingStarMarkImageUrl = new URL(
+  '../../scenarios/item/warding_star_mark.webp',
+  import.meta.url,
+).href
 
 const clueRecords: Record<string, { body: string; title: string }> = {
   item_friend_apartment_spare_key: {
@@ -41,6 +45,10 @@ const clueRecords: Record<string, { body: string; title: string }> = {
   item_star_spawn_wooden_idol: {
     title: '電視櫃上的觸手木雕',
     body: '一尊約五十公分高的深色木雕，扭曲的觸手造型看不出具體代表什麼；靠近時還能聞到潮濕海水與腐敗有機物混合的氣味。',
+  },
+  item_warding_star_mark: {
+    title: '放射狀的守護刻痕',
+    body: '阿宏床頭板背面刻著的放射狀符號，中央一道豎痕像閉起的眼睛。書桌紙堆裡留有他反覆描摹的手稿；所有查得到的零散說法都只說同一件事——它能「保護」。',
   },
   老舊信箱: {
     title: '老舊信箱',
@@ -66,6 +74,7 @@ const itemLabels: Record<string, string> = {
   item_hidden_memory_card: '隱藏的記憶卡',
   item_microsd_card_reader: 'microSD 讀卡機',
   item_star_spawn_wooden_idol: '觸手造型木雕',
+  item_warding_star_mark: '放射狀的守護刻痕',
 }
 
 const itemRevealRecords: Record<string, ItemRevealRecord> = {
@@ -86,6 +95,12 @@ const itemRevealRecords: Record<string, ItemRevealRecord> = {
     imageUrl: starSpawnWoodenIdolImageUrl,
     subtitle: '發現異常物件',
     title: itemLabels.item_star_spawn_wooden_idol,
+  },
+  item_warding_star_mark: {
+    id: 'item_warding_star_mark',
+    imageUrl: wardingStarMarkImageUrl,
+    subtitle: '發現神秘符號',
+    title: itemLabels.item_warding_star_mark,
   },
 }
 
