@@ -4,7 +4,7 @@ import {
 } from '../../types/investigation'
 import type { CSSProperties, FormEvent } from 'react'
 import { Fragment } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import ArrowRight from 'react-iconly/dist/Icons/ArrowRight'
 import Calling from 'react-iconly/dist/Icons/Calling'
 import Document from 'react-iconly/dist/Icons/Document'
@@ -110,6 +110,76 @@ const revealableItemIds = new Set([
   'item_hidden_memory_card',
   'item_star_spawn_wooden_idol',
 ])
+
+// d10 骰子的正視圖：中央鳶形面＋左右上下側面，各面獨立受光。
+// 以 useId 產生漸層 id，避免頁面上多顆骰子的 <defs> 衝突。
+function DieShape() {
+  const gradientId = useId().replace(/[^a-zA-Z0-9]/g, '')
+  const face = `face-${gradientId}`
+  const side = `side-${gradientId}`
+  const dark = `dark-${gradientId}`
+  const sheen = `sheen-${gradientId}`
+  const well = `well-${gradientId}`
+
+  return (
+    <svg className="die-svg" viewBox="0 0 100 104" aria-hidden="true">
+      <defs>
+        <linearGradient id={face} x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0" stopColor="#356354" />
+          <stop offset="0.45" stopColor="#16352c" />
+          <stop offset="1" stopColor="#0a1f1a" />
+        </linearGradient>
+        <linearGradient id={side} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#1d4438" />
+          <stop offset="1" stopColor="#0a1d18" />
+        </linearGradient>
+        <linearGradient id={dark} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#0e241e" />
+          <stop offset="1" stopColor="#050f0d" />
+        </linearGradient>
+        <radialGradient id={well} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="rgba(4, 14, 12, 0.62)" />
+          <stop offset="0.62" stopColor="rgba(4, 14, 12, 0.34)" />
+          <stop offset="1" stopColor="rgba(4, 14, 12, 0)" />
+        </radialGradient>
+        <radialGradient id={sheen} cx="0.4" cy="0.16" r="0.62">
+          <stop offset="0" stopColor="rgba(216, 236, 224, 0.34)" />
+          <stop offset="0.45" stopColor="rgba(216, 236, 224, 0.08)" />
+          <stop offset="1" stopColor="rgba(216, 236, 224, 0)" />
+        </radialGradient>
+      </defs>
+      {/* 左右側面（後層） */}
+      <polygon points="50,3 8,40 30,54" fill={`url(#${side})`} />
+      <polygon points="8,40 30,54 24,88" fill={`url(#${side})`} />
+      <polygon points="30,54 24,88 50,101" fill={`url(#${dark})`} />
+      <polygon points="50,3 92,40 70,54" fill={`url(#${dark})`} />
+      <polygon points="92,40 70,54 76,88" fill={`url(#${dark})`} />
+      <polygon points="70,54 76,88 50,101" fill={`url(#${dark})`} />
+      {/* 中央鳶形面 */}
+      <polygon points="50,3 70,54 50,101 30,54" fill={`url(#${face})`} />
+      {/* 數字銘刻底：壓暗中央，讓數字脫離稜線 */}
+      <ellipse cx="50" cy="54" rx="19" ry="25" fill={`url(#${well})`} />
+      {/* 稜線 */}
+      <g
+        fill="none"
+        stroke="rgba(163, 204, 186, 0.45)"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      >
+        <polygon points="50,3 70,54 50,101 30,54" />
+        <path d="M8,40 L30,54 M92,40 L70,54 M24,88 L30,54 M76,88 L70,54" strokeOpacity="0.55" />
+      </g>
+      {/* 輪廓與頂部光澤 */}
+      <polygon
+        points="50,3 92,40 76,88 50,101 24,88 8,40"
+        fill={`url(#${sheen})`}
+        stroke="rgba(190, 222, 204, 0.6)"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 function getSceneImageUrl(sceneId: string) {
   const exactImageUrl = sceneImageUrls[sceneId]
@@ -848,7 +918,8 @@ export function InvestigationScene({
               onClick={handleRollChecks}
             >
               <span className="d100-die" aria-hidden="true">
-                d100
+                <DieShape />
+                <span className="die-label">d100</span>
               </span>
               <span>{isRollingDice ? '骰子正在滾動' : '擲骰檢定'}</span>
             </button>
@@ -863,7 +934,8 @@ export function InvestigationScene({
           >
             {isRollingDice && (
               <div className="result-die rolling" aria-label="骰子正在滾動">
-                {rollingDisplayRoll}
+                <DieShape />
+                <span className="die-label">{rollingDisplayRoll}</span>
               </div>
             )}
             {!isRollingDice &&
@@ -876,7 +948,8 @@ export function InvestigationScene({
                   type="button"
                   onClick={handleResolveRollResults}
                 >
-                  {result.roll}
+                  <DieShape />
+                  <span className="die-label">{result.roll}</span>
                 </button>
               ))}
           </div>

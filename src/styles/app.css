@@ -1444,63 +1444,48 @@
 
 .d100-die,
 .result-die {
-  aspect-ratio: 1;
+  aspect-ratio: 100 / 104;
   display: grid;
   place-items: center;
   position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(143, 183, 166, 0.42);
-  border-radius: 0;
-  clip-path: polygon(50% 0%, 86% 24%, 78% 78%, 50% 100%, 22% 78%, 14% 24%);
-  background:
-    linear-gradient(160deg, transparent 0 49.4%, rgba(151, 198, 178, 0.22) 49.7% 50.3%, transparent 50.6%),
-    linear-gradient(20deg, transparent 0 49.5%, rgba(151, 198, 178, 0.16) 49.8% 50.2%, transparent 50.5%),
-    radial-gradient(circle at 42% 30%, rgba(217, 233, 221, 0.12), transparent 28%),
-    linear-gradient(135deg, rgba(18, 47, 39, 0.96) 0 44%, rgba(8, 25, 22, 0.98) 45% 68%, rgba(3, 12, 11, 0.98) 100%);
-  color: rgba(202, 195, 176, 0.96);
+  border: 0;
+  background: transparent;
+  color: rgba(213, 205, 187, 0.96);
   font-family: var(--font-serif);
   isolation: isolate;
-  box-shadow:
-    inset 0 0 0 1px rgba(224, 235, 220, 0.04),
-    inset 0 0 1.6rem rgba(121, 184, 164, 0.1),
-    0 0.75rem 1.5rem rgba(0, 0, 0, 0.24);
 }
 
-.d100-die::before,
-.result-die::before {
-  content: "";
+.die-svg {
   position: absolute;
   inset: 0;
-  z-index: -1;
-  clip-path: inherit;
-  background:
-    linear-gradient(90deg, transparent 0 49.5%, rgba(151, 198, 178, 0.28) 49.8% 50.2%, transparent 50.5%),
-    linear-gradient(60deg, transparent 0 49.4%, rgba(151, 198, 178, 0.22) 49.7% 50.3%, transparent 50.6%),
-    linear-gradient(120deg, transparent 0 49.4%, rgba(151, 198, 178, 0.2) 49.7% 50.3%, transparent 50.6%),
-    radial-gradient(circle at 50% 50%, rgba(9, 28, 24, 0.74) 0 24%, transparent 25%);
-  opacity: 0.72;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  filter:
+    drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 0.9rem rgba(121, 184, 164, 0.14));
 }
 
-.d100-die::after,
-.result-die::after {
-  content: "";
-  position: absolute;
-  inset: 23%;
-  z-index: -1;
-  clip-path: polygon(50% 4%, 82% 27%, 74% 75%, 50% 96%, 26% 75%, 18% 27%);
-  border: 1px solid rgba(210, 225, 205, 0.1);
-  background:
-    radial-gradient(circle at 45% 35%, rgba(34, 80, 66, 0.84), transparent 42%),
-    rgba(7, 19, 17, 0.88);
+.die-label {
+  position: relative;
+  z-index: 1;
+  /* 中央鳶形面的視覺中心略高於幾何中心 */
+  transform: translateY(-3%);
 }
 
 .d100-die {
-  width: 2.45rem;
+  width: 2.55rem;
   font-family: var(--font-numeric-ritual);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.d100-die .die-svg {
+  filter:
+    drop-shadow(0 0.2rem 0.4rem rgba(0, 0, 0, 0.4))
+    drop-shadow(0 0 0.45rem rgba(121, 184, 164, 0.16));
 }
 
 .dice-stage {
@@ -1540,10 +1525,31 @@
     radial-gradient(circle at center, rgba(180, 58, 54, 0.18), transparent 15rem);
 }
 
+.dice-stage[data-outcome="success"] .die-svg {
+  filter:
+    drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 1.3rem rgba(86, 158, 205, 0.42));
+}
+
+.dice-stage[data-outcome="failure"] .die-svg {
+  filter:
+    drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 1.3rem rgba(207, 76, 68, 0.46));
+}
+
+.result-die.rolling .die-svg {
+  animation: dieWobble 240ms ease-in-out infinite;
+}
+
+@keyframes dieWobble {
+  0% { transform: rotate(-3.2deg) scale(0.985); }
+  50% { transform: rotate(2.6deg) scale(1.012); }
+  100% { transform: rotate(-3.2deg) scale(0.985); }
+}
+
 .result-die {
   width: min(48vw, 12.5rem);
   z-index: 1;
-  border-style: solid;
   color: rgba(215, 206, 187, 0.96);
   font-family: var(--font-numeric-ritual);
   font-size: clamp(2.6rem, 15vw, 5rem);
