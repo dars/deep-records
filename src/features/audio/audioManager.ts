@@ -49,6 +49,7 @@ class AudioManager {
   private fadeTimer: number | null = null
   private ducked = false
   private sfxPool = new Map<SfxName, HTMLAudioElement>()
+  private bgmPool = new Map<Exclude<BgmMood, 'silent'>, HTMLAudioElement>()
   private baseVolume = loadStoredVolume()
 
   private targetVolume() {
@@ -73,7 +74,15 @@ class AudioManager {
     }
   }
 
-  private createTrack(mood: Exclude<BgmMood, 'silent'>): HTMLAudioElement {
+  // iOS 的播放解鎖是逐元素的：所有 mood 音軌都必須在手勢解鎖時建立並祝福，
+  // 之後的 crossfade 只能在池子裡切換，不得建立新元素。
+  private getTrack(mood: Exclude<BgmMood, 'silent'>): HTMLAudioElement {
+    const pooled = this.bgmPool.get(mood)
+
+    if (pooled) {
+      return pooled
+    }
+
     const element = new Audio(moodTracks[mood])
     element.loop = true
     element.preload = 'auto'
@@ -84,8 +93,26 @@ class AudioManager {
         void element.play().catch(() => {})
       }
     })
+    this.bgmPool.set(mood, element)
 
     return element
+  }
+
+  // 無聲祝福：volume 0 + muted，play() 後「同步」立刻 pause，
+  // 避免 iOS 對 muted 生效時機的 bug 讓聲音漏出來。
+  private blessSilently(element: HTMLAudioElement) {
+    const originalVolume = element.volume
+    element.volume = 0
+    element.muted = true
+    const playAttempt = element.play()
+    element.pause()
+    void playAttempt
+      .catch(() => {})
+      .finally(() => {
+        element.currentTime = 0
+        element.muted = false
+        element.volume = originalVolume
+      })
   }
 
   private stopFade() {
@@ -104,13 +131,20 @@ class AudioManager {
     this.stopFade()
 
     const outgoing = this.active
-    const incoming = this.createTrack(mood)
+    const incoming = this.getTrack(mood)
+
+    if (incoming === outgoing) {
+      return
+    }
+
+    incoming.currentTime = 0
     incoming.volume = 0
     void incoming.play().catch(() => {})
     this.active = incoming
     this.fading = outgoing
 
     const steps = Math.max(1, Math.floor(crossfadeMs / fadeTickMs))
+    const outgoingStart = outgoing?.volume ?? 0
     let step = 0
 
     this.fadeTimer = window.setInterval(() => {
@@ -119,7 +153,7 @@ class AudioManager {
       incoming.volume = this.targetVolume() * progress
 
       if (outgoing) {
-        outgoing.volume = Math.max(0, outgoing.volume * (1 - progress))
+        outgoing.volume = Math.max(0, outgoingStart * (1 - progress))
       }
 
       if (progress >= 1) {
@@ -186,18 +220,20 @@ class AudioManager {
       if (!this.sfxPool.has(name)) {
         const element = new Audio(path)
         element.preload = 'auto'
-        element.muted = true
-        void element
-          .play()
-          .then(() => {
-            element.pause()
-            element.currentTime = 0
-            element.muted = false
-          })
-          .catch(() => {
-            element.muted = false
-          })
         this.sfxPool.set(name, element)
+        this.blessSilently(element)
+      }
+    }
+
+    // 預先建立並祝福所有 mood 音軌（正在播放的除外），
+    // 讓之後的 crossfade 能在非手勢時機順利 play()。
+    for (const mood of Object.keys(moodTracks) as Array<
+      Exclude<BgmMood, 'silent'>
+    >) {
+      const element = this.getTrack(mood)
+
+      if (mood !== this.mood && element !== this.active) {
+        this.blessSilently(element)
       }
     }
 
@@ -207,7 +243,7 @@ class AudioManager {
     }
 
     if (!this.active) {
-      this.active = this.createTrack(this.mood as Exclude<BgmMood, 'silent'>)
+      this.active = this.getTrack(this.mood as Exclude<BgmMood, 'silent'>)
       this.active.volume = this.targetVolume()
     }
 
