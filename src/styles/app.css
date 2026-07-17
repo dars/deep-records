@@ -1444,48 +1444,73 @@
 
 .d100-die,
 .result-die {
-  aspect-ratio: 100 / 104;
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
   position: relative;
   border: 0;
   background: transparent;
-  color: rgba(213, 205, 187, 0.96);
+  color: rgba(228, 214, 186, 0.96);
   font-family: var(--font-serif);
   isolation: isolate;
 }
 
-.die-svg {
+.die-visual {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   z-index: 0;
+  user-select: none;
+  pointer-events: none;
   filter:
-    drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
-    drop-shadow(0 0 0.9rem rgba(121, 184, 164, 0.14));
+    drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.46))
+    drop-shadow(0 0 0.9rem rgba(196, 158, 92, 0.14));
+}
+
+/* 數字銘刻底：壓暗正面骰面中央，讓數字脫離雕紋 */
+.d100-die::before,
+.result-die::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 27%;
+  right: 27%;
+  top: 36%;
+  bottom: 22%;
+  background: radial-gradient(
+    closest-side,
+    rgba(8, 7, 5, 0.68),
+    rgba(8, 7, 5, 0.38) 62%,
+    transparent
+  );
+  pointer-events: none;
 }
 
 .die-label {
   position: relative;
-  z-index: 1;
-  /* 中央鳶形面的視覺中心略高於幾何中心 */
-  transform: translateY(-3%);
+  z-index: 2;
+  /* 對齊圖檔正面骰面的視覺中心（略低於幾何中心） */
+  transform: translateY(9%);
+  text-shadow:
+    0 1px 0.3rem rgba(0, 0, 0, 0.95),
+    0 0 0.9rem rgba(0, 0, 0, 0.6);
 }
 
 .d100-die {
   width: 2.55rem;
   font-family: var(--font-numeric-ritual);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-.d100-die .die-svg {
+.d100-die .die-visual {
   filter:
-    drop-shadow(0 0.2rem 0.4rem rgba(0, 0, 0, 0.4))
-    drop-shadow(0 0 0.45rem rgba(121, 184, 164, 0.16));
+    drop-shadow(0 0.2rem 0.4rem rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 0.45rem rgba(196, 158, 92, 0.18));
 }
 
 .dice-stage {
@@ -1525,19 +1550,19 @@
     radial-gradient(circle at center, rgba(180, 58, 54, 0.18), transparent 15rem);
 }
 
-.dice-stage[data-outcome="success"] .die-svg {
+.dice-stage[data-outcome="success"] .die-visual {
   filter:
     drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
-    drop-shadow(0 0 1.3rem rgba(86, 158, 205, 0.42));
+    drop-shadow(0 0 1.3rem rgba(86, 158, 205, 0.46));
 }
 
-.dice-stage[data-outcome="failure"] .die-svg {
+.dice-stage[data-outcome="failure"] .die-visual {
   filter:
     drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.42))
-    drop-shadow(0 0 1.3rem rgba(207, 76, 68, 0.46));
+    drop-shadow(0 0 1.3rem rgba(207, 76, 68, 0.5));
 }
 
-.result-die.rolling .die-svg {
+.result-die.rolling .die-visual {
   animation: dieWobble 240ms ease-in-out infinite;
 }
 
