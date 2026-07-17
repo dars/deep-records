@@ -8,12 +8,14 @@ type GameReadingPageProps = {
   investigator: InvestigatorProfile
   onRestart: () => void
   resume?: SavedGame | null
+  skipPrologue?: boolean
 }
 
 export function GameReadingPage({
   investigator,
   onRestart,
   resume,
+  skipPrologue,
 }: GameReadingPageProps) {
   return (
     <InvestigationStateProvider
@@ -26,6 +28,7 @@ export function GameReadingPage({
             onItemReveal={showItemReveal}
             onRestart={onRestart}
             resume={resume}
+            skipPrologue={skipPrologue}
           />
         )}
       </MobileGameLayout>

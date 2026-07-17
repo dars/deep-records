@@ -1,0 +1,13 @@
+{
+  "name": "Deep Records 深邃紀錄",
+  "short_name": "Deep Records",
+  "description": "單人克蘇魯式調查紀錄",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060f0e",
+  "theme_color": "#060f0e",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

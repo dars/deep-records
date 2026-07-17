@@ -5,12 +5,19 @@ import {
   defaultOccupationOption,
   occupationOptions,
 } from '../data/occupations'
-import type { SavedGame } from '../features/investigation/saveGame'
+import {
+  loadPlayerProfile,
+  loadUnlockedEndings,
+  type SavedGame,
+} from '../features/investigation/saveGame'
 import type { InvestigatorProfile } from '../types/investigation'
 
 type InvestigatorSetupPageProps = {
   onContinueSavedGame?: () => void
-  onCreateInvestigator: (investigator: InvestigatorProfile) => void
+  onCreateInvestigator: (
+    investigator: InvestigatorProfile,
+    skipPrologue: boolean,
+  ) => void
   savedGame?: SavedGame | null
 }
 
@@ -19,8 +26,14 @@ export function InvestigatorSetupPage({
   onCreateInvestigator,
   savedGame,
 }: InvestigatorSetupPageProps) {
-  const [name, setName] = useState('')
-  const [occupationId, setOccupationId] = useState(defaultOccupationOption?.id ?? '')
+  // 重玩：帶入上一輪的名字與職業；看過結局的玩家可選擇跳過楔子。
+  const [profile] = useState(loadPlayerProfile)
+  const [hasUnlockedEndings] = useState(() => loadUnlockedEndings().length > 0)
+  const [name, setName] = useState(profile?.name ?? '')
+  const [occupationId, setOccupationId] = useState(
+    profile?.occupationId ?? defaultOccupationOption?.id ?? '',
+  )
+  const [skipPrologue, setSkipPrologue] = useState(false)
   const selectedOccupation = useMemo(
     () =>
       occupationOptions.find((occupation) => occupation.id === occupationId) ??
@@ -39,7 +52,10 @@ export function InvestigatorSetupPage({
       return
     }
 
-    onCreateInvestigator(createInvestigatorProfile(name, selectedOccupation))
+    onCreateInvestigator(
+      createInvestigatorProfile(name, selectedOccupation),
+      skipPrologue,
+    )
   }
 
   return (
@@ -116,6 +132,17 @@ export function InvestigatorSetupPage({
                 </dd>
               </div>
             </dl>
+          )}
+
+          {hasUnlockedEndings && (
+            <label className="setup-skip-prologue">
+              <input
+                checked={skipPrologue}
+                onChange={(event) => setSkipPrologue(event.target.checked)}
+                type="checkbox"
+              />
+              <span>跳過楔子，直接抵達老公寓入口</span>
+            </label>
           )}
 
           <button disabled={!canStart} type="submit">

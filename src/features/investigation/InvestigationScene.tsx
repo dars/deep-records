@@ -25,7 +25,13 @@ import {
   type KeeperCheck,
   type KeeperCheckResult,
 } from './keeperClient'
-import { clearSavedGame, saveGame, type SavedGame } from './saveGame'
+import {
+  clearSavedGame,
+  loadUnlockedEndings,
+  saveGame,
+  unlockEnding,
+  type SavedGame,
+} from './saveGame'
 
 const prologueImageUrl = new URL(
   '../../../scenarios/000_prologue.webp',
@@ -107,6 +113,25 @@ const prologueStartAction =
 
 const apartmentEntranceStartAction =
   '進入 001_apartment_entrance。請根據 000_prologue 的前景設定，產生玩家抵達老公寓入口後的初始敘事、起始行動選項與必要檢定。'
+
+const keeperThinkingMessages = [
+  '守密人正在翻閱潮濕的紀錄……',
+  '筆尖劃過受潮的紙頁……',
+  '墨跡在燈下慢慢暈開……',
+  '雨聲滲進字裡行間……',
+  '某一頁被長久地停留著……',
+]
+
+// 結局圖鑑的完整清單（順序即圖鑑順序；標題在解鎖時記錄）。
+const allEndingIds = [
+  'ending_ordinary_departure',
+  'ending_uneasy_departure',
+  'ending_surrendered_evidence',
+  'ending_suppressed_truth',
+  'ending_truth_in_hand',
+  'ending_buried_together',
+  'ending_great_witness',
+]
 
 const revealableItemIds = new Set([
   'item_friend_apartment_spare_key',
@@ -340,12 +365,14 @@ type InvestigationSceneProps = {
   onItemReveal: (itemId: string) => void
   onRestart: () => void
   resume?: SavedGame | null
+  skipPrologue?: boolean
 }
 
 export function InvestigationScene({
   onItemReveal,
   onRestart,
   resume,
+  skipPrologue,
 }: InvestigationSceneProps) {
   // 從存檔續玩時不需要重新請求開場敘事。
   const hasRequestedInitialScene = useRef(Boolean(resume))
@@ -382,10 +409,20 @@ export function InvestigationScene({
     useState<PendingKeeperRequest | null>(null)
   const [keeperError, setKeeperError] = useState<string | null>(null)
   const [metaInputNotice, setMetaInputNotice] = useState<string | null>(null)
+  const [thinkingMessageIndex, setThinkingMessageIndex] = useState(0)
   const hasPendingCheck = checks.length > 0
   const hasActionOptions = actionOptions.length > 0
   const endingCaseSummary = investigationState.ending
     ? getEndingCaseSummary(investigationState)
+    : []
+  const unlockedEndings = investigationState.ending
+    ? (() => {
+        const stored = loadUnlockedEndings()
+
+        return stored.some((entry) => entry.id === investigationState.ending?.id)
+          ? stored
+          : [...stored, investigationState.ending]
+      })()
     : []
   const endingSubtitle = getEndingSubtitle(investigationState.ending?.id)
   const isDiceOverlayActive = isRollingDice || rollResults.length > 0
@@ -687,8 +724,50 @@ export function InvestigationScene({
     }
 
     hasRequestedInitialScene.current = true
-    void requestInitialScene()
+
+    if (skipPrologue) {
+      void requestApartmentEntranceScene()
+    } else {
+      void requestInitialScene()
+    }
   })
+
+  // 思考中訊息輪換：降低等待體感。
+  useEffect(() => {
+    if (!isKeeperThinking) {
+      setThinkingMessageIndex(0)
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setThinkingMessageIndex(
+        (current) => (current + 1) % keeperThinkingMessages.length,
+      )
+    }, 2600)
+
+    return () => window.clearInterval(intervalId)
+  }, [isKeeperThinking])
+
+  // 調查進行中，關閉/重整/離開頁面前先跳確認視窗（瀏覽器原生對話框）。
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!investigationState.ending) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [investigationState.ending])
+
+  // 抵達結局時記入結局圖鑑。
+  useEffect(() => {
+    if (investigationState.ending) {
+      unlockEnding(investigationState.ending)
+    }
+  }, [investigationState.ending])
 
   // 每回合結束後自動存檔；抵達結局後清除（結局畫面重新開始即是新局）。
   useEffect(() => {
@@ -1013,7 +1092,7 @@ export function InvestigationScene({
                 <span className="page-flip-book__page page-flip-book__page--two" />
               </div>
             </div>
-            <p>守密人正在翻閱潮濕的紀錄……</p>
+            <p>{keeperThinkingMessages[thinkingMessageIndex]}</p>
           </div>
         )}
 
@@ -1026,6 +1105,9 @@ export function InvestigationScene({
                 {check.reason}
               </p>
             ))}
+            <small className="check-rule-hint">
+              擲出小於或等於難度的點數即為成功
+            </small>
             <button
               className="check-roll-button"
               disabled={isRollingDice || rollResults.length > 0}
@@ -1122,6 +1204,28 @@ export function InvestigationScene({
                 重新開始
               </button>
               <p className="ending-restart-note">從頭開始新的調查</p>
+              <section className="ending-collection" aria-label="結局圖鑑">
+                <p className="ending-collection-title">
+                  已見證的結局　{unlockedEndings.length} / {allEndingIds.length}
+                </p>
+                <ul>
+                  {allEndingIds.map((endingId) => {
+                    const unlocked = unlockedEndings.find(
+                      (entry) => entry.id === endingId,
+                    )
+
+                    return (
+                      <li
+                        key={endingId}
+                        data-unlocked={Boolean(unlocked)}
+                        data-current={endingId === investigationState.ending?.id}
+                      >
+                        {unlocked ? unlocked.title : '？？？？'}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
             </div>
           </aside>
         )}

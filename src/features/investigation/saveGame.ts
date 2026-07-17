@@ -77,3 +77,83 @@ export function clearSavedGame() {
     // 同上，靜默略過。
   }
 }
+
+// ── 玩家檔案：重玩時帶入上一輪的名字與職業 ──────────────────
+export type PlayerProfile = {
+  name: string
+  occupationId: string
+}
+
+const profileKey = 'deep-records/profile/v1'
+
+export function loadPlayerProfile(): PlayerProfile | null {
+  try {
+    const raw = window.localStorage.getItem(profileKey)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as PlayerProfile
+
+    return typeof parsed?.name === 'string' && typeof parsed?.occupationId === 'string'
+      ? parsed
+      : null
+  } catch {
+    return null
+  }
+}
+
+export function savePlayerProfile(profile: PlayerProfile) {
+  try {
+    window.localStorage.setItem(profileKey, JSON.stringify(profile))
+  } catch {
+    // 靜默略過
+  }
+}
+
+// ── 結局圖鑑：跨輪保存已見證的結局 ─────────────────────────
+export type UnlockedEnding = {
+  id: string
+  title: string
+}
+
+const endingsKey = 'deep-records/endings/v1'
+
+export function loadUnlockedEndings(): UnlockedEnding[] {
+  try {
+    const raw = window.localStorage.getItem(endingsKey)
+
+    if (!raw) {
+      return []
+    }
+
+    const parsed = JSON.parse(raw) as UnlockedEnding[]
+
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (entry) =>
+            typeof entry?.id === 'string' && typeof entry?.title === 'string',
+        )
+      : []
+  } catch {
+    return []
+  }
+}
+
+export function unlockEnding(ending: UnlockedEnding) {
+  try {
+    const unlocked = loadUnlockedEndings()
+
+    if (unlocked.some((entry) => entry.id === ending.id)) {
+      return
+    }
+
+    window.localStorage.setItem(
+      endingsKey,
+      JSON.stringify([...unlocked, ending]),
+    )
+  } catch {
+    // 靜默略過
+  }
+}
