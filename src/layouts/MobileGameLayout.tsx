@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { audioManager } from '../features/audio/audioManager'
 import Category from 'react-iconly/dist/Icons/Category'
 import Document from 'react-iconly/dist/Icons/Document'
 import VolumeOff from 'react-iconly/dist/Icons/VolumeOff'
@@ -31,7 +32,6 @@ const starSpawnWoodenIdolImageUrl = new URL(
   '../../scenarios/item/star_spawn_wooden_idol.webp',
   import.meta.url,
 ).href
-const backgroundMusicUrl = '/assets/music/ambient-drone-quiet-unease-continuous.mp3'
 
 const clueRecords: Record<string, { body: string; title: string }> = {
   item_friend_apartment_spare_key: {
@@ -148,7 +148,6 @@ function buildInvestigationLogs(investigationState: InvestigationState) {
 export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
   const { investigationState } = useInvestigationState()
   const { investigator } = investigationState
-  const backgroundMusicRef = useRef<HTMLAudioElement>(null)
   const [isCharacterOpen, setIsCharacterOpen] = useState(false)
   const [isCharacterClosing, setIsCharacterClosing] = useState(false)
   const [activeRecordTab, setActiveRecordTab] = useState<RecordTab>('character')
@@ -177,80 +176,37 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
   const inventoryItems = investigationState.inventory.map(getInventoryItem)
   const investigationLogs = buildInvestigationLogs(investigationState)
 
-  const playBackgroundMusic = useCallback(async () => {
-    const audio = backgroundMusicRef.current
-
-    if (!audio) {
-      return
-    }
-
-    audio.volume = 0.8
-
-    try {
-      await audio.play()
-      setHasMusicStarted(true)
-    } catch {
-      setHasMusicStarted(false)
-    }
-  }, [])
-
+  // BGM 與 SFX 統一由 audioManager 管理；iOS 需在手勢內解鎖。
   useEffect(() => {
-    const audio = backgroundMusicRef.current
-
-    if (!audio) {
-      return
-    }
-
-    audio.volume = 0.8
-    audio.loop = true
-  }, [])
-
-  useEffect(() => {
-    const audio = backgroundMusicRef.current
-
-    if (!audio) {
-      return
-    }
+    audioManager.setEnabled(isMusicEnabled)
 
     if (!isMusicEnabled) {
-      audio.pause()
       setHasMusicStarted(false)
       return
     }
 
-    void playBackgroundMusic()
-  }, [isMusicEnabled, playBackgroundMusic])
-
-  useEffect(() => {
-    if (!isMusicEnabled || hasMusicStarted) {
-      return
+    let cancelled = false
+    const attemptUnlock = () => {
+      void audioManager.unlock().then((started) => {
+        if (!cancelled) {
+          setHasMusicStarted(started)
+        }
+      })
     }
 
-    const unlockMusic = () => {
-      void playBackgroundMusic()
-    }
-
-    window.addEventListener('pointerdown', unlockMusic, { once: true })
-    window.addEventListener('keydown', unlockMusic, { once: true })
+    attemptUnlock()
+    window.addEventListener('pointerdown', attemptUnlock, { once: true })
+    window.addEventListener('keydown', attemptUnlock, { once: true })
 
     return () => {
-      window.removeEventListener('pointerdown', unlockMusic)
-      window.removeEventListener('keydown', unlockMusic)
+      cancelled = true
+      window.removeEventListener('pointerdown', attemptUnlock)
+      window.removeEventListener('keydown', attemptUnlock)
     }
-  }, [hasMusicStarted, isMusicEnabled, playBackgroundMusic])
+  }, [isMusicEnabled])
 
   const toggleBackgroundMusic = () => {
-    const audio = backgroundMusicRef.current
-
-    if (isMusicEnabled) {
-      audio?.pause()
-      setIsMusicEnabled(false)
-      setHasMusicStarted(false)
-      return
-    }
-
-    setIsMusicEnabled(true)
-    void playBackgroundMusic()
+    setIsMusicEnabled((current) => !current)
   }
 
   const showItemReveal = (itemId: string) => {
@@ -282,7 +238,6 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
 
   return (
     <main className="app-shell" aria-labelledby="page-title">
-      <audio ref={backgroundMusicRef} src={backgroundMusicUrl} preload="auto" loop />
       <div className="reading-frame">
         <header className="page-header">
           <button className="icon-button menu-button" type="button" aria-label="開啟選單">

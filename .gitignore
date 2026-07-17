@@ -16,6 +16,7 @@ dist-ssr
 
 # codegen 產物（npm run generate）
 worker/generated/
+src/generated/
 
 # Editor directories and files
 .vscode/*

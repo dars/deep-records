@@ -15,6 +15,7 @@ import VolumeUp from 'react-iconly/dist/Icons/VolumeUp'
 import VolumeOff from 'react-iconly/dist/Icons/VolumeOff'
 import Search from 'react-iconly/dist/Icons/Search'
 import type { TurnHistoryEntry } from '../../../shared/keeper'
+import { audioManager, resolveBgmMood } from '../audio/audioManager'
 import {
   addVisitedScene,
   useInvestigationState,
@@ -619,6 +620,13 @@ export function InvestigationScene({
       onItemReveal(newlyAddedItem)
     }
 
+    if (
+      responseEffects.setFlags?.officer_a_yang_arrived === true ||
+      responseEffects.setFlags?.officer_knock_escalated === true
+    ) {
+      audioManager.playSfx('knock')
+    }
+
     reduceInvestigationState(response.observation, responseEffects, {
       beliefUpdate: response.belief,
       visitSceneId: sceneId,
@@ -760,6 +768,16 @@ export function InvestigationScene({
 
     return () => window.clearInterval(intervalId)
   }, [isKeeperThinking])
+
+  // BGM mood 跟隨遊戲狀態（場景 frontmatter ＋ 旗標覆寫）。
+  useEffect(() => {
+    audioManager.setMood(resolveBgmMood(investigationState))
+  }, [investigationState])
+
+  // 朗讀時壓低 BGM。
+  useEffect(() => {
+    audioManager.duck(speechState !== 'idle')
+  }, [speechState])
 
   // 調查進行中，關閉/重整/離開頁面前先跳確認視窗（瀏覽器原生對話框）。
   useEffect(() => {
@@ -947,6 +965,7 @@ export function InvestigationScene({
     }
 
     setIsRollingDice(true)
+    audioManager.playSfx('dice')
     setRollingDisplayRoll(Math.floor(Math.random() * 100) + 1)
 
     const rollingIntervalId = window.setInterval(() => {

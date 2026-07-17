@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const scenariosDir = join(projectRoot, 'scenarios')
 const outputFile = join(projectRoot, 'worker', 'generated', 'content.ts')
+const moodsOutputFile = join(projectRoot, 'src', 'generated', 'scene-moods.ts')
 
 function walkMarkdownFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -66,6 +67,7 @@ const entries = files.map((filePath, index) => {
     importName: `md${index}`,
     importPath: relativePath,
     itemsAvailable: parseList(frontmatter.items_available),
+    musicMood: frontmatter.music_mood ?? '',
     once: frontmatter.once === 'true',
     references: parseList(frontmatter.references),
     title: frontmatter.title ?? frontmatter.id,
@@ -191,6 +193,19 @@ ${occupations
 
 mkdirSync(dirname(outputFile), { recursive: true })
 writeFileSync(outputFile, output)
+
+// 前端用的場景音樂情境表（music_mood frontmatter）。
+const moodsOutput = `// 本檔案由 scripts/generate-content.mjs 產生，請勿手動編輯。
+export const sceneMoods: Record<string, string> = {
+${scenes
+  .filter((entry) => entry.musicMood)
+  .map((entry) => `  ${JSON.stringify(entry.id)}: ${JSON.stringify(entry.musicMood)},`)
+  .join('\n')}
+}
+`
+
+mkdirSync(dirname(moodsOutputFile), { recursive: true })
+writeFileSync(moodsOutputFile, moodsOutput)
 console.log(
   `Generated ${relative(projectRoot, outputFile)}: ${scenes.length} scenes, ${items.length} items, ${endings.length} endings, ${occupations.length} occupations, ${characters.length} characters, ${factions.length} factions, ${keeperReferences.length} references`,
 )
