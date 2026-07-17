@@ -1,19 +1,25 @@
-// 全站音訊管理：mood 驅動的雙軌 BGM crossfade、SFX 池、TTS ducking。
-// iOS 需要在使用者手勢內解鎖播放，unlock() 由 UI 層在手勢事件中呼叫。
+// 全站音訊管理：mood 驅動的 BGM、SFX 池、TTS ducking。
+// 架構：兩個在使用者手勢中解鎖的「插槽」元素輪流承載曲目（iOS 的播放授權
+// 是逐元素的，已解鎖元素換 src 仍保有授權）。所有曲目播到接近結尾時
+// 交叉淡接到下一首——多曲目的 mood（tense）隨機輪播、單曲目 mood 平滑自環。
 import { sceneMoods } from '../../generated/scene-moods'
 
 export type BgmMood = 'rainy' | 'tense' | 'dread' | 'ritual' | 'silent'
 
-// mood → 曲目。缺檔時自動退回 tense（現有 drone），
-// 之後補上對應檔名的音檔即可自動生效，不用改程式。
-const moodTracks: Record<Exclude<BgmMood, 'silent'>, string> = {
-  dread: '/assets/music/bgm-dread.mp3',
-  rainy: '/assets/music/bgm-rainy.mp3',
-  ritual: '/assets/music/bgm-ritual.mp3',
-  tense: '/assets/music/ambient-drone-quiet-unease-continuous.mp3',
+// mood → 曲目清單；多首時隨機輪播（不連續重複同一首）。
+const moodTracks: Record<Exclude<BgmMood, 'silent'>, string[]> = {
+  dread: ['/assets/music/bgm-dread.mp3'],
+  rainy: ['/assets/music/bgm-rainy.mp3'],
+  ritual: ['/assets/music/bgm-ritual.mp3'],
+  tense: [
+    '/assets/music/bgm-tense-1.mp3',
+    '/assets/music/bgm-tense-2.mp3',
+    '/assets/music/bgm-tense-3.mp3',
+    '/assets/music/bgm-tense-4.mp3',
+  ],
 }
 
-const fallbackTrack = moodTracks.tense
+const fallbackTrack = '/assets/music/ambient-drone-quiet-unease-continuous.mp3'
 
 const sfxTracks = {
   dice: '/assets/sfx/dice-roll.mp3',
@@ -44,12 +50,13 @@ class AudioManager {
   private enabled = true
   private unlocked = false
   private mood: BgmMood = 'rainy'
-  private active: HTMLAudioElement | null = null
-  private fading: HTMLAudioElement | null = null
+  private slots: HTMLAudioElement[] = []
+  private activeIndex = 0
+  private currentUrl = ''
+  private rotationArmed = false
   private fadeTimer: number | null = null
   private ducked = false
   private sfxPool = new Map<SfxName, HTMLAudioElement>()
-  private bgmPool = new Map<Exclude<BgmMood, 'silent'>, HTMLAudioElement>()
   private baseVolume = loadStoredVolume()
 
   private targetVolume() {
@@ -69,39 +76,54 @@ class AudioManager {
       // 靜默略過
     }
 
-    if (this.active && this.fadeTimer === null) {
-      this.active.volume = this.targetVolume()
+    const active = this.slots[this.activeIndex]
+
+    if (active && this.fadeTimer === null) {
+      active.volume = this.targetVolume()
     }
   }
 
-  // iOS 的播放解鎖是逐元素的：所有 mood 音軌都必須在手勢解鎖時建立並祝福，
-  // 之後的 crossfade 只能在池子裡切換，不得建立新元素。
-  private getTrack(mood: Exclude<BgmMood, 'silent'>): HTMLAudioElement {
-    const pooled = this.bgmPool.get(mood)
-
-    if (pooled) {
-      return pooled
-    }
-
-    const element = new Audio(moodTracks[mood])
-    element.loop = true
+  private createSlot(): HTMLAudioElement {
+    const element = new Audio()
     element.preload = 'auto'
-    // 缺檔時退回既有的 tense 曲目，讓 mood 機制先於素材存在。
+    // 曲目載入失敗時退回既有的 drone。
     element.addEventListener('error', () => {
-      if (!element.src.endsWith(fallbackTrack)) {
+      if (element.src && !element.src.endsWith(fallbackTrack)) {
         element.src = fallbackTrack
         void element.play().catch(() => {})
       }
     })
-    this.bgmPool.set(mood, element)
+    // 接近結尾時交叉淡接到下一首（同 mood 內輪播／自環）。
+    element.addEventListener('timeupdate', () => {
+      if (
+        element !== this.slots[this.activeIndex] ||
+        !this.rotationArmed ||
+        !Number.isFinite(element.duration) ||
+        element.duration <= 0
+      ) {
+        return
+      }
+
+      const remaining = element.duration - element.currentTime
+
+      if (remaining <= crossfadeMs / 1000 + 0.2) {
+        this.rotationArmed = false
+        this.advanceWithinMood()
+      }
+    })
+    // 背景分頁 timeupdate 可能被節流：ended 作為保底。
+    element.addEventListener('ended', () => {
+      if (element === this.slots[this.activeIndex] && this.mood !== 'silent') {
+        this.advanceWithinMood()
+      }
+    })
 
     return element
   }
 
-  // 無聲祝福：volume 0 + muted，play() 後「同步」立刻 pause，
-  // 避免 iOS 對 muted 生效時機的 bug 讓聲音漏出來。
-  private blessSilently(element: HTMLAudioElement) {
-    const originalVolume = element.volume
+  // 無聲祝福：volume 0 + muted，play() 後同步 pause，避免 iOS 漏音。
+  private blessSilently(element: HTMLAudioElement, url: string) {
+    element.src = url
     element.volume = 0
     element.muted = true
     const playAttempt = element.play()
@@ -111,8 +133,28 @@ class AudioManager {
       .finally(() => {
         element.currentTime = 0
         element.muted = false
-        element.volume = originalVolume
       })
+  }
+
+  private pickTrack(mood: Exclude<BgmMood, 'silent'>, excludeUrl?: string): string {
+    const tracks = moodTracks[mood]
+
+    if (tracks.length === 1) {
+      return tracks[0]
+    }
+
+    const candidates = tracks.filter((track) => track !== excludeUrl)
+    const pool = candidates.length > 0 ? candidates : tracks
+
+    return pool[Math.floor(Math.random() * pool.length)]
+  }
+
+  private advanceWithinMood() {
+    if (this.mood === 'silent' || !this.enabled || !this.unlocked) {
+      return
+    }
+
+    this.crossfadeTo(this.pickTrack(this.mood, this.currentUrl))
   }
 
   private stopFade() {
@@ -120,43 +162,40 @@ class AudioManager {
       window.clearInterval(this.fadeTimer)
       this.fadeTimer = null
     }
-
-    if (this.fading) {
-      this.fading.pause()
-      this.fading = null
-    }
   }
 
-  private crossfadeTo(mood: Exclude<BgmMood, 'silent'>) {
-    this.stopFade()
-
-    const outgoing = this.active
-    const incoming = this.getTrack(mood)
-
-    if (incoming === outgoing) {
+  private crossfadeTo(url: string) {
+    if (this.slots.length < 2) {
       return
     }
 
+    this.stopFade()
+
+    const outgoing = this.slots[this.activeIndex]
+    const incomingIndex = 1 - this.activeIndex
+    const incoming = this.slots[incomingIndex]
+
+    incoming.src = url
     incoming.currentTime = 0
     incoming.volume = 0
+    incoming.muted = false
     void incoming.play().catch(() => {})
-    this.active = incoming
-    this.fading = outgoing
+    this.activeIndex = incomingIndex
+    this.currentUrl = url
+    this.rotationArmed = true
 
     const steps = Math.max(1, Math.floor(crossfadeMs / fadeTickMs))
-    const outgoingStart = outgoing?.volume ?? 0
+    const outgoingStart = outgoing.volume
     let step = 0
 
     this.fadeTimer = window.setInterval(() => {
       step += 1
       const progress = Math.min(1, step / steps)
       incoming.volume = this.targetVolume() * progress
-
-      if (outgoing) {
-        outgoing.volume = Math.max(0, outgoingStart * (1 - progress))
-      }
+      outgoing.volume = Math.max(0, outgoingStart * (1 - progress))
 
       if (progress >= 1) {
+        outgoing.pause()
         this.stopFade()
       }
     }, fadeTickMs)
@@ -165,27 +204,24 @@ class AudioManager {
   private fadeOutAll() {
     this.stopFade()
 
-    const outgoing = this.active
+    const outgoing = this.slots[this.activeIndex]
 
-    if (!outgoing) {
+    if (!outgoing || outgoing.paused) {
       return
     }
 
-    this.active = null
+    this.rotationArmed = false
     const steps = Math.max(1, Math.floor(crossfadeMs / fadeTickMs))
+    const outgoingStart = outgoing.volume
     let step = 0
 
     this.fadeTimer = window.setInterval(() => {
       step += 1
-      outgoing.volume = Math.max(0, this.targetVolume() * (1 - step / steps))
+      outgoing.volume = Math.max(0, outgoingStart * (1 - step / steps))
 
       if (step >= steps) {
         outgoing.pause()
-
-        if (this.fadeTimer !== null) {
-          window.clearInterval(this.fadeTimer)
-          this.fadeTimer = null
-        }
+        this.stopFade()
       }
     }, fadeTickMs)
   }
@@ -195,20 +231,27 @@ class AudioManager {
 
     if (!enabled) {
       this.stopFade()
-      this.active?.pause()
+
+      for (const slot of this.slots) {
+        slot.pause()
+      }
+
       return
     }
 
     if (this.unlocked && this.mood !== 'silent') {
-      if (this.active) {
-        void this.active.play().catch(() => {})
+      const active = this.slots[this.activeIndex]
+
+      if (active?.src) {
+        active.volume = this.targetVolume()
+        void active.play().catch(() => {})
       } else {
-        this.crossfadeTo(this.mood)
+        this.crossfadeTo(this.pickTrack(this.mood))
       }
     }
   }
 
-  // 必須在使用者手勢事件中呼叫；同時「祝福」SFX 元素供非手勢時機播放（iOS）。
+  // 必須在使用者手勢事件中呼叫；祝福兩個 BGM 插槽與 SFX 元素。
   async unlock(): Promise<boolean> {
     if (!this.enabled) {
       return false
@@ -218,23 +261,17 @@ class AudioManager {
       [SfxName, string]
     >) {
       if (!this.sfxPool.has(name)) {
-        const element = new Audio(path)
+        const element = new Audio()
         element.preload = 'auto'
         this.sfxPool.set(name, element)
-        this.blessSilently(element)
+        this.blessSilently(element, path)
       }
     }
 
-    // 預先建立並祝福所有 mood 音軌（正在播放的除外），
-    // 讓之後的 crossfade 能在非手勢時機順利 play()。
-    for (const mood of Object.keys(moodTracks) as Array<
-      Exclude<BgmMood, 'silent'>
-    >) {
-      const element = this.getTrack(mood)
-
-      if (mood !== this.mood && element !== this.active) {
-        this.blessSilently(element)
-      }
+    if (this.slots.length === 0) {
+      this.slots = [this.createSlot(), this.createSlot()]
+      // 備用插槽先以 fallback 曲目祝福，取得播放授權。
+      this.blessSilently(this.slots[1], fallbackTrack)
     }
 
     if (this.mood === 'silent') {
@@ -242,14 +279,18 @@ class AudioManager {
       return true
     }
 
-    if (!this.active) {
-      this.active = this.getTrack(this.mood as Exclude<BgmMood, 'silent'>)
-      this.active.volume = this.targetVolume()
+    const active = this.slots[this.activeIndex]
+
+    if (!active.src) {
+      this.currentUrl = this.pickTrack(this.mood)
+      active.src = this.currentUrl
+      active.volume = this.targetVolume()
     }
 
     try {
-      await this.active.play()
+      await active.play()
       this.unlocked = true
+      this.rotationArmed = true
       return true
     } catch {
       return false
@@ -272,7 +313,7 @@ class AudioManager {
       return
     }
 
-    this.crossfadeTo(mood)
+    this.crossfadeTo(this.pickTrack(mood))
   }
 
   // TTS 朗讀時壓低 BGM；結束後回復。
@@ -283,7 +324,7 @@ class AudioManager {
 
     this.ducked = on
 
-    const element = this.active
+    const element = this.slots[this.activeIndex]
 
     if (!element || this.fadeTimer !== null) {
       return
