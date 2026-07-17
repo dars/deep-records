@@ -11,6 +11,8 @@ import Document from 'react-iconly/dist/Icons/Document'
 import Discovery from 'react-iconly/dist/Icons/Discovery'
 import Login from 'react-iconly/dist/Icons/Login'
 import PaperPlus from 'react-iconly/dist/Icons/PaperPlus'
+import VolumeUp from 'react-iconly/dist/Icons/VolumeUp'
+import VolumeOff from 'react-iconly/dist/Icons/VolumeOff'
 import Search from 'react-iconly/dist/Icons/Search'
 import type { TurnHistoryEntry } from '../../../shared/keeper'
 import {
@@ -368,6 +370,7 @@ export function InvestigationScene({
   const [rollResults, setRollResults] = useState<RollResult[]>([])
   const [rollingDisplayRoll, setRollingDisplayRoll] = useState(100)
   const [screenRaindrops, setScreenRaindrops] = useState<ScreenRaindrop[]>([])
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [isRollingDice, setIsRollingDice] = useState(false)
   const [isKeeperThinking, setIsKeeperThinking] = useState(false)
   const [lastKeeperRequest, setLastKeeperRequest] =
@@ -400,6 +403,70 @@ export function InvestigationScene({
         ? '000_prologue'
         : investigationState.currentSceneId,
     )
+
+  const speechSupported =
+    typeof window !== 'undefined' && 'speechSynthesis' in window
+
+  const stopSpeaking = () => {
+    if (speechSupported) {
+      window.speechSynthesis.cancel()
+    }
+
+    setIsSpeaking(false)
+  }
+
+  // 以段落為單位排入朗讀佇列（iOS 對過長的單一 utterance 容易中斷）。
+  const handleToggleSpeech = () => {
+    if (!speechSupported) {
+      return
+    }
+
+    if (isSpeaking) {
+      stopSpeaking()
+      return
+    }
+
+    const narration = storyParagraphs.filter(
+      (paragraph) => !parsePlayerEcho(paragraph),
+    )
+
+    if (narration.length === 0) {
+      return
+    }
+
+    window.speechSynthesis.cancel()
+    const voices = window.speechSynthesis.getVoices()
+    const zhVoice =
+      voices.find((voice) => voice.lang === 'zh-TW') ??
+      voices.find((voice) => voice.lang?.startsWith('zh'))
+
+    narration.forEach((paragraph, index) => {
+      const utterance = new SpeechSynthesisUtterance(paragraph)
+      utterance.lang = 'zh-TW'
+
+      if (zhVoice) {
+        utterance.voice = zhVoice
+      }
+
+      utterance.rate = 0.95
+
+      if (index === narration.length - 1) {
+        utterance.onend = () => setIsSpeaking(false)
+        utterance.onerror = () => setIsSpeaking(false)
+      }
+
+      window.speechSynthesis.speak(utterance)
+    })
+    setIsSpeaking(true)
+  }
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
 
   const applyKeeperResponse = async (
     playerAction: string,
@@ -468,6 +535,7 @@ export function InvestigationScene({
       sceneStage: 'prologue',
     })
     setSceneStage('prologue')
+    stopSpeaking()
     setIsKeeperThinking(true)
     setKeeperError(null)
     setChecks([])
@@ -510,6 +578,7 @@ export function InvestigationScene({
       sceneStage: 'apartmentEntrance',
     })
     setSceneStage('apartmentEntrance')
+    stopSpeaking()
     setIsKeeperThinking(true)
     setKeeperError(null)
     setChecks([])
@@ -650,6 +719,7 @@ export function InvestigationScene({
     }
 
     setMetaInputNotice(null)
+    stopSpeaking()
     setLastKeeperRequest({
       checkResults: options?.checkResults,
       displayText,
@@ -813,6 +883,25 @@ export function InvestigationScene({
       </div>
 
       <div className="scene-scroll" ref={sceneScrollRef}>
+        {speechSupported &&
+          !isKeeperThinking &&
+          storyParagraphs.some((paragraph) => !parsePlayerEcho(paragraph)) && (
+            <button
+              className="tts-button"
+              type="button"
+              aria-pressed={isSpeaking}
+              onClick={handleToggleSpeech}
+            >
+              <span aria-hidden="true">
+                {isSpeaking ? (
+                  <VolumeOff set="light" size="small" />
+                ) : (
+                  <VolumeUp set="light" size="small" />
+                )}
+              </span>
+              {isSpeaking ? '停止朗讀' : '朗讀敘事'}
+            </button>
+          )}
         <article className="story-block">
           {storyParagraphs.map((paragraph, index) => {
             const playerEcho = parsePlayerEcho(paragraph)
