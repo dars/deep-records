@@ -11,6 +11,11 @@ import {
   handleDeterministicSceneTransition,
   handleScriptedInvestigation,
 } from './core/deterministic'
+import {
+  handleAdminPage,
+  handleAdminSession,
+  handleAdminStats,
+} from './core/admin'
 import { logTurnEvent, type TurnSource } from './core/analytics'
 import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
 import { inferEnding } from './core/ending'
@@ -34,6 +39,7 @@ type RateLimiter = {
 }
 
 type Env = {
+  ADMIN_KEY?: string
   ANALYTICS_DB?: D1Database
   ELEVENLABS_API_KEY?: string
   ELEVENLABS_VOICE_ID?: string
@@ -42,7 +48,7 @@ type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-analytics-2026-07-18-1'
+const workerVersion = 'keeper-analytics-2026-07-18-3'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -77,6 +83,18 @@ export default {
 
     if (url.pathname === '/health') {
       return json({ model: geminiModel, ok: true, version: workerVersion }, 200, corsHeaders)
+    }
+
+    if (url.pathname === '/admin') {
+      return handleAdminPage()
+    }
+
+    if (url.pathname === '/api/admin/stats') {
+      return handleAdminStats(request, env)
+    }
+
+    if (url.pathname === '/api/admin/session') {
+      return handleAdminSession(request, env)
     }
 
     if (url.pathname === '/api/tts') {
