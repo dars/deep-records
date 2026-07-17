@@ -200,6 +200,21 @@ function renderActionIcon(option: ActionOption) {
   return <ArrowRight set="light" size="large" />
 }
 
+// 雜誌式首字下沉：段落以中文字開頭時，第一個字放大浮動。
+// 以「、（等標點開頭的段落（多為對白）不做，避免放大標點。
+function renderNarrationParagraph(paragraph: string) {
+  if (!/^[\u4e00-\u9fff]/.test(paragraph)) {
+    return paragraph
+  }
+
+  return (
+    <>
+      <span className="drop-cap">{paragraph[0]}</span>
+      {paragraph.slice(1)}
+    </>
+  )
+}
+
 function parsePlayerEcho(paragraph: string) {
   const separatorIndex = paragraph.indexOf('：')
 
@@ -813,7 +828,7 @@ export function InvestigationScene({
                     {playerEcho.content}
                   </p>
                 ) : (
-                  <p>{paragraph}</p>
+                  <p>{renderNarrationParagraph(paragraph)}</p>
                 )}
               </Fragment>
             )

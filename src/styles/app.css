@@ -758,6 +758,20 @@
   margin: 0;
 }
 
+/* 雜誌式首字下沉：約占兩行高（line-height 1.92 × 2 ≈ 3.84em） */
+.story-block .drop-cap {
+  float: left;
+  font-size: 3.05em;
+  line-height: 1.08;
+  padding: 0 0.14em 0 0;
+  margin: 0.05em 0 0;
+  font-weight: 500;
+  color: rgba(224, 230, 212, 0.96);
+  text-shadow:
+    0 0 1rem rgba(151, 198, 178, 0.2),
+    0 1px 0.3rem rgba(0, 0, 0, 0.85);
+}
+
 .story-block .story-player-action {
   position: relative;
   margin: 0 0 var(--space-2);
