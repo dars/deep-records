@@ -28,6 +28,12 @@ name = "TTS_RATE_LIMITER"
 namespace_id = "1002"
 simple = { limit = 10, period = 60 }
 
+# TTS 音訊快取（Cache API 在 workers.dev 無效，改用 KV）。
+[[kv_namespaces]]
+binding = "TTS_CACHE"
+id = "aacd0ed8e4e94e84ae45882ba1419b84"
+
 [vars]
-# ElevenLabs 語音 id（George，沉穩敘事者男聲）；換聲音改這裡即可。
-ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
+# ElevenLabs 語音與模型；換聲音／模型改這裡即可。
+ELEVENLABS_VOICE_ID = "kbrsaic1zriFXx1pgRYN"
+ELEVENLABS_MODEL_ID = "eleven_v3"

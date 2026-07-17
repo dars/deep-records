@@ -40,7 +40,7 @@ type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-17'
+const workerVersion = 'keeper-refactor-2026-07-17-19'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。

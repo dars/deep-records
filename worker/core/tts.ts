@@ -2,12 +2,14 @@
 // 以文字雜湊做 Cache API 快取（同段敘事重聽不重複扣credits）。
 type TtsEnv = {
   ELEVENLABS_API_KEY?: string
+  ELEVENLABS_MODEL_ID?: string
   ELEVENLABS_VOICE_ID?: string
+  TTS_CACHE?: KVNamespace
 }
 
-// eleven_flash_v2_5：低延遲、半價 credits，支援中文。
-// 想換更高品質可改 'eleven_multilingual_v2'。
-const elevenLabsModel = 'eleven_flash_v2_5'
+// 預設 eleven_flash_v2_5（低延遲、半價）；wrangler.toml 可覆寫，
+// 例如 eleven_v3（最具表現力）或 eleven_multilingual_v2（克隆聲一致性最佳）。
+const defaultModelId = 'eleven_flash_v2_5'
 const defaultVoiceId = 'JBFqnCBsd6RMkjVDRZzb'
 const maxTextLength = 1200
 
@@ -45,25 +47,30 @@ export async function handleTtsRequest(
   }
 
   const voiceId = env.ELEVENLABS_VOICE_ID ?? defaultVoiceId
-  const cacheKey = await buildCacheKey(text, voiceId)
-  const cache = caches.default
-  const cached = await cache.match(cacheKey)
+  const modelId = env.ELEVENLABS_MODEL_ID ?? defaultModelId
+  const cacheHash = await buildCacheHash(text, voiceId, modelId)
+  const cached = await env.TTS_CACHE?.get(cacheHash, 'arrayBuffer')
 
   if (cached) {
-    return withHeaders(cached, corsHeaders)
+    return audioResponse(cached, corsHeaders)
   }
 
   const upstream = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
     {
       body: JSON.stringify({
-        model_id: elevenLabsModel,
+        model_id: modelId,
         text,
-        voice_settings: {
-          similarity_boost: 0.75,
-          stability: 0.5,
-          style: 0.25,
-        },
+        // v3 系列的參數介面不同，不帶舊版 voice_settings。
+        ...(modelId.startsWith('eleven_v3')
+          ? {}
+          : {
+              voice_settings: {
+                similarity_boost: 0.75,
+                stability: 0.5,
+                style: 0.25,
+              },
+            }),
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -86,38 +93,42 @@ export async function handleTtsRequest(
   }
 
   const audio = await upstream.arrayBuffer()
-  const response = new Response(audio, {
+
+  if (env.TTS_CACHE) {
+    ctx.waitUntil(
+      env.TTS_CACHE.put(cacheHash, audio, { expirationTtl: 60 * 60 * 24 * 7 }),
+    )
+  }
+
+  return audioResponse(audio, corsHeaders)
+}
+
+async function buildCacheHash(
+  text: string,
+  voiceId: string,
+  modelId: string,
+): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${voiceId}:${modelId}:${text}`),
+  )
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function audioResponse(
+  audio: ArrayBuffer,
+  extraHeaders: Record<string, string>,
+) {
+  return new Response(audio, {
     headers: {
+      ...extraHeaders,
       'Cache-Control': 'public, max-age=604800',
       'Content-Type': 'audio/mpeg',
     },
   })
-
-  ctx.waitUntil(cache.put(cacheKey, response.clone()))
-
-  return withHeaders(response, corsHeaders)
-}
-
-async function buildCacheKey(text: string, voiceId: string): Promise<Request> {
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(`${voiceId}:${elevenLabsModel}:${text}`),
-  )
-  const hash = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-
-  return new Request(`https://tts-cache.deep-records.internal/${hash}`)
-}
-
-function withHeaders(response: Response, extraHeaders: Record<string, string>) {
-  const wrapped = new Response(response.body, response)
-
-  for (const [key, value] of Object.entries(extraHeaders)) {
-    wrapped.headers.set(key, value)
-  }
-
-  return wrapped
 }
 
 function jsonResponse(
