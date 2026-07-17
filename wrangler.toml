@@ -1,0 +1,7 @@
+name = "keeper"
+main = "worker/keeper.ts"
+compatibility_date = "2025-12-01"
+
+rules = [
+  { type = "Text", globs = ["**/*.md"], fallthrough = true }
+]
