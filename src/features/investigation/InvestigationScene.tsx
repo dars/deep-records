@@ -200,8 +200,8 @@ function renderActionIcon(option: ActionOption) {
   return <ArrowRight set="light" size="large" />
 }
 
-// 雜誌式首字下沉：段落以中文字開頭時，第一個字放大浮動。
-// 以「、（等標點開頭的段落（多為對白）不做，避免放大標點。
+// 雜誌式首字下沉：只套用在每次回應的第一個敘事段落，
+// 且段落須以中文字開頭（引號等標點開頭的對白不做，避免放大標點）。
 function renderNarrationParagraph(paragraph: string) {
   if (!/^[\u4e00-\u9fff]/.test(paragraph)) {
     return paragraph
@@ -816,6 +816,11 @@ export function InvestigationScene({
         <article className="story-block">
           {storyParagraphs.map((paragraph, index) => {
             const playerEcho = parsePlayerEcho(paragraph)
+            const isFirstNarration =
+              index ===
+              storyParagraphs.findIndex(
+                (candidate) => !parsePlayerEcho(candidate),
+              )
 
             return (
               <Fragment key={`${paragraph}-${index}`}>
@@ -828,7 +833,11 @@ export function InvestigationScene({
                     {playerEcho.content}
                   </p>
                 ) : (
-                  <p>{renderNarrationParagraph(paragraph)}</p>
+                  <p>
+                    {isFirstNarration
+                      ? renderNarrationParagraph(paragraph)
+                      : paragraph}
+                  </p>
                 )}
               </Fragment>
             )
