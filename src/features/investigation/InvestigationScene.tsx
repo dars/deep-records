@@ -21,6 +21,7 @@ import {
 } from './InvestigationStateContext'
 import {
   requestKeeperTurn,
+  requestNarrationAudio,
   type KeeperCheck,
   type KeeperCheckResult,
 } from './keeperClient'
@@ -370,7 +371,11 @@ export function InvestigationScene({
   const [rollResults, setRollResults] = useState<RollResult[]>([])
   const [rollingDisplayRoll, setRollingDisplayRoll] = useState(100)
   const [screenRaindrops, setScreenRaindrops] = useState<ScreenRaindrop[]>([])
-  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [speechState, setSpeechState] = useState<'idle' | 'loading' | 'playing'>(
+    'idle',
+  )
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
+  const ttsAbortRef = useRef<AbortController | null>(null)
   const [isRollingDice, setIsRollingDice] = useState(false)
   const [isKeeperThinking, setIsKeeperThinking] = useState(false)
   const [lastKeeperRequest, setLastKeeperRequest] =
@@ -408,29 +413,32 @@ export function InvestigationScene({
     typeof window !== 'undefined' && 'speechSynthesis' in window
 
   const stopSpeaking = () => {
-    if (speechSupported) {
+    ttsAbortRef.current?.abort()
+    ttsAbortRef.current = null
+
+    const audio = ttsAudioRef.current
+
+    if (audio) {
+      audio.pause()
+
+      if (audio.src.startsWith('blob:')) {
+        URL.revokeObjectURL(audio.src)
+      }
+
+      audio.removeAttribute('src')
+    }
+
+    if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
 
-    setIsSpeaking(false)
+    setSpeechState('idle')
   }
 
-  // 以段落為單位排入朗讀佇列（iOS 對過長的單一 utterance 容易中斷）。
-  const handleToggleSpeech = () => {
+  // 備援：ElevenLabs 不可用時退回瀏覽器內建語音。
+  const speakWithWebSpeech = (narration: string[]) => {
     if (!speechSupported) {
-      return
-    }
-
-    if (isSpeaking) {
-      stopSpeaking()
-      return
-    }
-
-    const narration = storyParagraphs.filter(
-      (paragraph) => !parsePlayerEcho(paragraph),
-    )
-
-    if (narration.length === 0) {
+      setSpeechState('idle')
       return
     }
 
@@ -451,17 +459,76 @@ export function InvestigationScene({
       utterance.rate = 0.95
 
       if (index === narration.length - 1) {
-        utterance.onend = () => setIsSpeaking(false)
-        utterance.onerror = () => setIsSpeaking(false)
+        utterance.onend = () => setSpeechState('idle')
+        utterance.onerror = () => setSpeechState('idle')
       }
 
       window.speechSynthesis.speak(utterance)
     })
-    setIsSpeaking(true)
+    setSpeechState('playing')
+  }
+
+  const handleToggleSpeech = async () => {
+    if (speechState !== 'idle') {
+      stopSpeaking()
+      return
+    }
+
+    const narration = storyParagraphs.filter(
+      (paragraph) => !parsePlayerEcho(paragraph),
+    )
+
+    if (narration.length === 0) {
+      return
+    }
+
+    // 在使用者手勢內先「解鎖」audio 元素（iOS 對非手勢鏈的播放會拒絕）。
+    if (!ttsAudioRef.current) {
+      ttsAudioRef.current = new Audio()
+    }
+
+    const audio = ttsAudioRef.current
+    audio.play().catch(() => {})
+    audio.pause()
+
+    setSpeechState('loading')
+    const controller = new AbortController()
+    ttsAbortRef.current = controller
+
+    try {
+      const blob = await requestNarrationAudio(
+        narration.join('\n\n'),
+        controller.signal,
+      )
+      const objectUrl = URL.createObjectURL(blob)
+      audio.src = objectUrl
+      audio.onended = () => {
+        URL.revokeObjectURL(objectUrl)
+        setSpeechState('idle')
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(objectUrl)
+        setSpeechState('idle')
+      }
+      await audio.play()
+      setSpeechState('playing')
+    } catch (error) {
+      if (controller.signal.aborted) {
+        return
+      }
+
+      // ElevenLabs 未設定或失敗：退回內建語音。
+      speakWithWebSpeech(narration)
+    } finally {
+      ttsAbortRef.current = null
+    }
   }
 
   useEffect(() => {
     return () => {
+      ttsAbortRef.current?.abort()
+      ttsAudioRef.current?.pause()
+
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
@@ -883,23 +950,26 @@ export function InvestigationScene({
       </div>
 
       <div className="scene-scroll" ref={sceneScrollRef}>
-        {speechSupported &&
-          !isKeeperThinking &&
+        {!isKeeperThinking &&
           storyParagraphs.some((paragraph) => !parsePlayerEcho(paragraph)) && (
             <button
               className="tts-button"
               type="button"
-              aria-pressed={isSpeaking}
-              onClick={handleToggleSpeech}
+              aria-pressed={speechState !== 'idle'}
+              onClick={() => void handleToggleSpeech()}
             >
               <span aria-hidden="true">
-                {isSpeaking ? (
+                {speechState !== 'idle' ? (
                   <VolumeOff set="light" size="small" />
                 ) : (
                   <VolumeUp set="light" size="small" />
                 )}
               </span>
-              {isSpeaking ? '停止朗讀' : '朗讀敘事'}
+              {speechState === 'loading'
+                ? '語音準備中…'
+                : speechState === 'playing'
+                  ? '停止朗讀'
+                  : '朗讀敘事'}
             </button>
           )}
         <article className="story-block">

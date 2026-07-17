@@ -18,6 +18,7 @@ import { handleOfficerArrival, processOfficerDoorPhase } from './core/officer'
 import { buildPrompt } from './core/prompt'
 import { processRitualPacing } from './core/ritual'
 import { resolveSanityEffects } from './core/sanity'
+import { handleTtsRequest } from './core/tts'
 import { sanitizeKeeperRequest } from './core/sanitize'
 import {
   enforceDiscoveryConstraints,
@@ -32,11 +33,14 @@ type RateLimiter = {
 }
 
 type Env = {
+  ELEVENLABS_API_KEY?: string
+  ELEVENLABS_VOICE_ID?: string
   GEMINI_API_KEY: string
   KEEPER_RATE_LIMITER?: RateLimiter
+  TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-16'
+const workerVersion = 'keeper-refactor-2026-07-17-17'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -60,7 +64,7 @@ function corsHeadersFor(request: Request): Record<string, string> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const corsHeaders = corsHeadersFor(request)
 
     if (request.method === 'OPTIONS') {
@@ -71,6 +75,23 @@ export default {
 
     if (url.pathname === '/health') {
       return json({ model: geminiModel, ok: true, version: workerVersion }, 200, corsHeaders)
+    }
+
+    if (url.pathname === '/api/tts') {
+      if (request.method !== 'POST') {
+        return json({ error: 'method_not_allowed' }, 405, corsHeaders)
+      }
+
+      if (env.TTS_RATE_LIMITER) {
+        const clientIp = request.headers.get('cf-connecting-ip') ?? 'unknown'
+        const { success } = await env.TTS_RATE_LIMITER.limit({ key: clientIp })
+
+        if (!success) {
+          return json({ error: 'rate_limited', message: '請稍後再試。' }, 429, corsHeaders)
+        }
+      }
+
+      return handleTtsRequest(request, env, corsHeaders, ctx)
     }
 
     if (url.pathname !== '/api/keeper') {

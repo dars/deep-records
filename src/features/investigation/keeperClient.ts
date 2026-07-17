@@ -19,6 +19,29 @@ export type { KeeperCheck, KeeperCheckResult, KeeperResponse } from '../../../sh
 const keeperEndpoint: string =
   import.meta.env.VITE_KEEPER_ENDPOINT ?? '/api/keeper'
 
+const ttsEndpoint: string = keeperEndpoint.replace(/\/keeper$/, '/tts')
+
+// 向 worker 請求敘事語音（ElevenLabs 代理）；失敗時拋錯讓呼叫端退回 Web Speech。
+export async function requestNarrationAudio(
+  text: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const response = await fetch(ttsEndpoint, {
+    body: JSON.stringify({ text }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(`tts_${response.status}`)
+  }
+
+  return await response.blob()
+}
+
 export async function requestKeeperTurn(
   playerAction: string,
   options: {

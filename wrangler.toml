@@ -21,3 +21,13 @@ enabled = true
 name = "KEEPER_RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 20, period = 60 }
+
+# 語音合成獨立限流：每 IP 每 60 秒 10 次。
+[[ratelimits]]
+name = "TTS_RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
+
+[vars]
+# ElevenLabs 語音 id（George，沉穩敘事者男聲）；換聲音改這裡即可。
+ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
