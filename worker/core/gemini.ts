@@ -87,6 +87,16 @@ const keeperResponseSchema = {
     effects: {
       type: 'OBJECT',
       properties: {
+        // 必填 + sentinel（none/none）：選填巢狀物件在 structured output
+        // 下常被模型一律省略，必填能強迫它每回合明確判斷 SAN 事件。
+        sanityCheck: {
+          type: 'OBJECT',
+          properties: {
+            spec: { type: 'STRING' },
+            eventFlag: { type: 'STRING' },
+          },
+          required: ['spec', 'eventFlag'],
+        },
         sanityDelta: { type: 'INTEGER' },
         hitPointDelta: { type: 'INTEGER' },
         addInventory: { type: 'ARRAY', items: { type: 'STRING' } },
@@ -99,9 +109,10 @@ const keeperResponseSchema = {
         verifiedMythRuleId: { type: 'STRING' },
         nextSceneId: { type: 'STRING' },
       },
+      required: ['sanityCheck'],
     },
   },
-  required: ['narration', 'actions', 'checks'],
+  required: ['narration', 'actions', 'checks', 'effects'],
 }
 
 type GeminiEnv = {

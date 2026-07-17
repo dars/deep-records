@@ -9,7 +9,7 @@ exit_condition: 玩家返回客廳
 trigger_condition: 玩家從客廳進入朋友的臥房
 music_mood: tense
 sanity_cost: 0
-references: [character_lin_xian_hong, character_landlord, item_hidden_memory_card, item_microsd_card_reader, item_friend_laptop]
+references: [character_lin_xian_hong, character_landlord, item_hidden_memory_card, item_microsd_card_reader, item_friend_laptop, sanity_rules]
 ---
 
 ## 感官描述（給玩家的初次印象）

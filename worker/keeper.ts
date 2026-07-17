@@ -15,6 +15,7 @@ import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
 import { handleOfficerArrival } from './core/officer'
 import { buildPrompt } from './core/prompt'
+import { resolveSanityEffects } from './core/sanity'
 import { sanitizeKeeperRequest } from './core/sanitize'
 import {
   enforceDiscoveryConstraints,
@@ -32,7 +33,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-6'
+const workerVersion = 'keeper-refactor-2026-07-17-10'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -140,6 +141,7 @@ async function handleKeeperTurn(
       playerAction,
       body.selectedAction,
       body.state,
+      body.character,
     ) ??
     handleDeterministicInvestigationAction(
       sceneId,
@@ -152,7 +154,12 @@ async function handleKeeperTurn(
 
   return json(
     validateKeeperResponse(
-      applyInferredEnding(response, sceneId, playerAction, body),
+      applyInferredEnding(
+        resolveSanityEffects(response, body.state),
+        sceneId,
+        playerAction,
+        body,
+      ),
       sceneId,
       body.state,
     ),

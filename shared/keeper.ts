@@ -69,6 +69,13 @@ export type BeliefObservation = {
   signal: BeliefSignal
 }
 
+// SAN 事件判定請求：模型回報規格與事件旗標，由 worker 擲骰、
+// 計算損失並防止重複扣除（見 worker/core/sanity.ts）。
+export type SanityCheckRequest = {
+  eventFlag: string
+  spec: string
+}
+
 export type InvestigationEffects = {
   addInventory?: string[]
   discoverClues?: string[]
@@ -77,6 +84,7 @@ export type InvestigationEffects = {
   hitPointDelta?: number
   nextSceneId?: string
   removeInventory?: string[]
+  sanityCheck?: SanityCheckRequest
   sanityDelta?: number
   setFlags?: Record<string, boolean>
   testedMythRuleId?: string
@@ -300,8 +308,25 @@ export function normalizeEffects(value: unknown): InvestigationEffects | undefin
   const normalizeId = (input: unknown) =>
     typeof input === 'string' && input.trim() ? input : undefined
 
+  const sanityCheckValue = effects.sanityCheck as
+    | Partial<SanityCheckRequest>
+    | undefined
+  const sanityCheck =
+    sanityCheckValue &&
+    typeof sanityCheckValue === 'object' &&
+    typeof sanityCheckValue.spec === 'string' &&
+    sanityCheckValue.spec.trim() &&
+    typeof sanityCheckValue.eventFlag === 'string' &&
+    sanityCheckValue.eventFlag.trim()
+      ? {
+          eventFlag: sanityCheckValue.eventFlag.trim(),
+          spec: sanityCheckValue.spec.trim(),
+        }
+      : undefined
+
   return {
     addInventory: normalizeStringList(effects.addInventory),
+    sanityCheck,
     discoverClues: normalizeStringList(effects.discoverClues),
     endingId: normalizeId(effects.endingId),
     endingTitle: normalizeId(effects.endingTitle),

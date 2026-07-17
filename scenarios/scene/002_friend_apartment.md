@@ -9,7 +9,7 @@ exit_condition: "阿陽登場前可循原路離開；阿陽登場後進入人為
 trigger_condition: 玩家抵達四樓朋友租屋處的門外
 music_mood: tense
 sanity_cost: 0
-references: [character_lin_xian_hong, character_landlord, item_friend_apartment_spare_key]
+references: [character_lin_xian_hong, character_landlord, item_friend_apartment_spare_key, sanity_rules]
 ---
 
 ## 感官描述(給玩家的初次印象)

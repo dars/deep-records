@@ -9,7 +9,7 @@ exit_condition: 玩家返回客廳
 trigger_condition: 玩家從客廳進入乾濕分離的浴室
 music_mood: tense
 sanity_cost: 0
-references: [character_lin_xian_hong, character_landlord]
+references: [character_lin_xian_hong, character_landlord, sanity_rules]
 ---
 
 ## 感官描述（給玩家的初次印象）

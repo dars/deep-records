@@ -250,12 +250,9 @@ function getEndingCaseSummary(investigationState: InvestigationState) {
                 ? '15%'
                 : '0%'
 
-  const sanityStatus =
-    sanity.current <= Math.max(0, sanity.starting - Math.ceil(sanity.starting / 5))
-      ? '失序'
-      : sanity.current < sanity.starting
-        ? '動搖'
-        : '穩定'
+  // 與 sanity-rules.md 的累計損失分層一致：3–5 動搖、6 以上失序。
+  const sanityLoss = Math.max(0, sanity.starting - sanity.current)
+  const sanityStatus = sanityLoss >= 6 ? '失序' : sanityLoss >= 3 ? '動搖' : '穩定'
 
   return [
     {

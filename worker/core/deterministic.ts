@@ -6,6 +6,8 @@ import type {
   KeeperWireState,
 } from '../../shared/keeper'
 import { isNegatedMovement, transitionRules } from '../config/transitions'
+import { occupationAliases } from '../generated/content'
+import { getCurrentSanity, resolveSanityCheck } from './sanity'
 
 export function handleDeterministicSceneTransition(
   sceneId: string,
@@ -369,6 +371,7 @@ export function handleScriptedInvestigation(
   playerAction: string,
   selectedAction?: KeeperAction,
   state?: KeeperWireState,
+  character?: KeeperRequestBody['character'],
 ): KeeperResponse | undefined {
   const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
   const inventory = new Set(state?.inventory ?? [])
@@ -426,6 +429,15 @@ export function handleScriptedInvestigation(
     ironDoorWasOpened &&
     attemptsApartmentUnlock
   ) {
+    // 開門直接承受屋內腐臭海水味：0/1 SAN 事件（sanity-rules.md）。
+    // 護理師具備腥臭耐受，免除此氣味判定。
+    const isNurse =
+      occupationAliases[character?.occupation ?? ''] === 'occupation_nurse'
+    const stenchCheck =
+      !isNurse && flags.san_checked_seawater_stench !== true
+        ? resolveSanityCheck('0/1', getCurrentSanity(state))
+        : undefined
+
     return {
       actions: [
         {
@@ -448,8 +460,11 @@ export function handleScriptedInvestigation(
       checks: [],
       effects: {
         nextSceneId: '003_friend_apartment_livingroom',
+        sanityDelta:
+          stenchCheck && stenchCheck.delta !== 0 ? stenchCheck.delta : undefined,
         setFlags: {
           friend_apartment_wooden_door_opened: true,
+          ...(stenchCheck ? { san_checked_seawater_stench: true } : {}),
         },
       },
       narration: [
