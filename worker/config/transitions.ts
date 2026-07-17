@@ -14,6 +14,9 @@ export type TransitionResult = {
 }
 
 export type TransitionRule = {
+  // 此旗標為 true 時停用該規則（例如阿陽登場後，下樓的固定敘事會與公寓封鎖矛盾，
+  // 改交給模型依 officer_a_yang.md 敘事）。
+  blockedByFlag?: string
   build: (context: TransitionContext) => TransitionResult
   from: string
   pattern: RegExp
@@ -72,6 +75,7 @@ export const transitionRules: TransitionRule[] = [
     },
   },
   {
+    blockedByFlag: 'officer_a_yang_arrived',
     from: '002_friend_apartment',
     to: '001_apartment_entrance',
     pattern: /(?:下樓|回到一樓|返回一樓|回樓下|離開公寓|回到入口|返回入口|公寓門口)/,

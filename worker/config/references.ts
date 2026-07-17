@@ -87,7 +87,11 @@ const referenceTriggers: ReferenceTrigger[] = [
   {
     flag: 'officer_a_yang_arrived',
     pattern: /警察|警方|報警|阿陽|員警|拘捕|手銬/,
-    references: ['character_officer_a_yang', 'faction_hidden_congregation'],
+    references: [
+      'character_officer_a_yang',
+      'faction_hidden_congregation',
+      'demo_rules',
+    ],
   },
   {
     pattern: /五樓|房東住處|獻祭|飲血|見證者/,

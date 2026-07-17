@@ -17,6 +17,10 @@ export type InferredEnding = {
   title: string
 }
 
+// 「離開現場」語意判定；officer.ts 也用它排除「離開公寓去報警」的誤觸發。
+export const leavingPattern =
+  /(?:轉身離開|轉身回家|直接回家|回家|離開公寓|離開這裡|不進去|不進公寓|放棄調查|取消調查|離開現場)/
+
 function toEnding(endingId: string): InferredEnding | undefined {
   const ending = endings[endingId]
 
@@ -33,13 +37,15 @@ export function inferEnding(
     return undefined
   }
 
-  const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
-  const isLeaving =
-    /(?:轉身離開|轉身回家|直接回家|回家|離開公寓|離開這裡|不進去|不進公寓|放棄調查|取消調查|離開現場)/.test(
-      actionText,
-    )
+  // 阿陽登場後公寓已封鎖，不再存在成功離開的結局路線（demo-rules 第二個不可逆門檻）。
+  // 離開嘗試交給模型依 officer_a_yang.md 的追逃與判定規則敘事。
+  if (state?.flags?.officer_a_yang_arrived === true) {
+    return undefined
+  }
 
-  if (!isLeaving) {
+  const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+
+  if (!leavingPattern.test(actionText)) {
     return undefined
   }
 

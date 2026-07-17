@@ -13,6 +13,7 @@ import {
 } from './core/deterministic'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
+import { handleOfficerArrival } from './core/officer'
 import { buildPrompt } from './core/prompt'
 import { sanitizeKeeperRequest } from './core/sanitize'
 import {
@@ -31,7 +32,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-4'
+const workerVersion = 'keeper-refactor-2026-07-17-5'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -126,6 +127,8 @@ async function handleKeeperTurn(
   }
 
   const response =
+    // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
+    handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state) ??
     handleDeterministicSceneTransition(
       sceneId,
       playerAction,
@@ -209,6 +212,11 @@ function applyInferredEnding(
         nextSceneId: undefined,
       },
     }
+  }
+
+  // 本回合正是阿陽登場回合時（旗標剛設下、state 還沒反映），同樣不得產生離開結局。
+  if (response.effects?.setFlags?.officer_a_yang_arrived === true) {
+    return response
   }
 
   const ending = inferEnding(sceneId, playerAction, body.state, body.selectedAction)

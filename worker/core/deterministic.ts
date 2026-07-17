@@ -25,7 +25,8 @@ export function handleDeterministicSceneTransition(
     (candidate) =>
       candidate.from === sceneId &&
       candidate.pattern.test(actionText) &&
-      (!candidate.requiresFlag || flags[candidate.requiresFlag] === true),
+      (!candidate.requiresFlag || flags[candidate.requiresFlag] === true) &&
+      (!candidate.blockedByFlag || flags[candidate.blockedByFlag] !== true),
   )
 
   if (!rule) {
