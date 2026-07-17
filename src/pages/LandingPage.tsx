@@ -20,6 +20,9 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             故事中的人物、地點、信仰與事件皆屬虛構。
             調查過程沒有標準答案——你的選擇、懷疑與相信，都會成為紀錄的一部分。
           </p>
+          <p className="landing-privacy-note">
+            遊玩過程將匿名記錄（不含姓名與個人資訊），僅用於改善作品。
+          </p>
         </div>
 
         <button className="landing-enter-button" type="button" onClick={onEnter}>

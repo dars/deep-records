@@ -11,6 +11,7 @@ import {
   handleDeterministicSceneTransition,
   handleScriptedInvestigation,
 } from './core/deterministic'
+import { logTurnEvent, type TurnSource } from './core/analytics'
 import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
@@ -33,6 +34,7 @@ type RateLimiter = {
 }
 
 type Env = {
+  ANALYTICS_DB?: D1Database
   ELEVENLABS_API_KEY?: string
   ELEVENLABS_VOICE_ID?: string
   GEMINI_API_KEY: string
@@ -40,7 +42,7 @@ type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-19'
+const workerVersion = 'keeper-analytics-2026-07-18-1'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -114,7 +116,7 @@ export default {
     try {
       const body = sanitizeKeeperRequest(await request.json())
 
-      return await handleKeeperTurn(body, env, corsHeaders)
+      return await handleKeeperTurn(body, env, corsHeaders, ctx)
     } catch (error) {
       // 詳細錯誤只進 observability log，不回傳給 client。
       console.error('keeper_failed', error instanceof Error ? error.message : error)
@@ -135,6 +137,7 @@ async function handleKeeperTurn(
   body: KeeperRequestBody,
   env: Env,
   corsHeaders: Record<string, string>,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const sceneId = body.sceneId ?? body.state?.currentSceneId ?? '001_apartment_entrance'
   const playerAction = body.playerAction ?? ''
@@ -162,32 +165,57 @@ async function handleKeeperTurn(
   // 五樓終局節奏：自由回合計數；超過寬限後阿陽強制推進儀式。
   const ritualPacing = processRitualPacing(sceneId, body.state)
 
-  let response =
+  // 依序嘗試各處理層，並記錄回應來源與模型延遲（供遊玩事件記錄）。
+  let turnSource: TurnSource = 'scripted'
+  let latencyMs = 0
+  let response: KeeperResponse | undefined =
     ritualPacing?.preempt ??
     doorPhase?.preempt ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
-    handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state) ??
-    handleDeterministicSceneTransition(
+    handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state)
+
+  if (!response) {
+    response = handleDeterministicSceneTransition(
       sceneId,
       playerAction,
       body.selectedAction,
       body.state,
-    ) ??
-    handleScriptedInvestigation(
-      sceneId,
-      playerAction,
-      body.selectedAction,
-      body.state,
-      body.character,
-    ) ??
-    handleDeterministicInvestigationAction(
-      sceneId,
-      playerAction,
-      body.selectedAction,
-      body.state,
-      body.character,
-    ) ??
-    (await runModelTurn(body, sceneId, playerAction, env))
+    )
+
+    if (response) {
+      turnSource = 'transition'
+    }
+  }
+
+  if (!response) {
+    response =
+      handleScriptedInvestigation(
+        sceneId,
+        playerAction,
+        body.selectedAction,
+        body.state,
+        body.character,
+      ) ??
+      handleDeterministicInvestigationAction(
+        sceneId,
+        playerAction,
+        body.selectedAction,
+        body.state,
+        body.character,
+      )
+
+    if (response) {
+      turnSource = 'deterministic'
+    }
+  }
+
+  if (!response) {
+    const startedAt = Date.now()
+    const modelTurn = await runModelTurn(body, sceneId, playerAction, env)
+    latencyMs = Date.now() - startedAt
+    response = modelTurn.response
+    turnSource = modelTurn.source
+  }
 
   const markFlags = { ...doorPhase?.markFlags, ...ritualPacing?.markFlags }
 
@@ -225,11 +253,18 @@ async function handleKeeperTurn(
     belief: beliefUpdate,
   }
 
-  return json(
-    validateKeeperResponse(response, sceneId, body.state),
-    200,
-    corsHeaders,
-  )
+  const validated = validateKeeperResponse(response, sceneId, body.state)
+
+  logTurnEvent(env, ctx, {
+    beliefStage: beliefUpdate.stage,
+    body,
+    latencyMs,
+    response: validated,
+    sceneId,
+    source: turnSource,
+  })
+
+  return json(validated, 200, corsHeaders)
 }
 
 async function runModelTurn(
@@ -237,7 +272,7 @@ async function runModelTurn(
   sceneId: string,
   playerAction: string,
   env: Env,
-): Promise<KeeperResponse> {
+): Promise<{ response: KeeperResponse; source: TurnSource }> {
   const prompt = buildPrompt({
     character: body.character,
     checkResults: body.checkResults,
@@ -248,8 +283,10 @@ async function runModelTurn(
     selectedAction: body.selectedAction,
     state: body.state,
   })
-  const modelResponse =
-    (await callGeminiKeeper(env, prompt)) ??
+  const modelResponse = await callGeminiKeeper(env, prompt)
+  const source: TurnSource = modelResponse ? 'model' : 'fallback'
+  const baseResponse =
+    modelResponse ??
     createKeeperFallbackResponse(
       sceneId,
       playerAction,
@@ -257,13 +294,21 @@ async function runModelTurn(
       genericFallbackNarration,
     )
   const constrainedResponse = enforceDiscoveryConstraints(
-    removeRepeatedActions(modelResponse, body.history),
+    removeRepeatedActions(baseResponse, body.history),
     sceneId,
     playerAction,
     body.state,
   )
 
-  return ensureAvailableActions(constrainedResponse, sceneId, playerAction, body.state)
+  return {
+    response: ensureAvailableActions(
+      constrainedResponse,
+      sceneId,
+      playerAction,
+      body.state,
+    ),
+    source,
+  }
 }
 
 function applyInferredEnding(

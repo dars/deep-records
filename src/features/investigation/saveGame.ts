@@ -19,6 +19,9 @@ export type SavedGame = {
   investigationState: InvestigationState
   investigator: InvestigatorProfile
   savedAt: string
+  // 匿名遊玩事件記錄：同一局續玩沿用同一 id 與回合序。
+  sessionId?: string
+  turnCount?: number
   ui: SavedGameUi
   version: 1
 }

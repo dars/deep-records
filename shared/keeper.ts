@@ -160,7 +160,10 @@ export type KeeperRequestBody = {
   playerAction?: string
   sceneId?: string
   selectedAction?: KeeperAction
+  // 匿名遊玩事件記錄用：每局一個隨機 id 與遞增回合序。
+  sessionId?: string
   state?: KeeperWireState
+  turnIndex?: number
 }
 
 export function normalizeBeliefSignal(value: unknown): BeliefSignal {

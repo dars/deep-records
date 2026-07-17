@@ -2637,3 +2637,9 @@
   border-color: rgba(148, 213, 185, 0.5);
   box-shadow: 0 0 0.6rem rgba(107, 181, 150, 0.14);
 }
+
+.landing-privacy-note {
+  color: rgba(151, 168, 152, 0.55) !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.08em !important;
+}

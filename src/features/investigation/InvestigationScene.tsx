@@ -376,6 +376,14 @@ export function InvestigationScene({
 }: InvestigationSceneProps) {
   // 從存檔續玩時不需要重新請求開場敘事。
   const hasRequestedInitialScene = useRef(Boolean(resume))
+  // 匿名遊玩事件記錄：每局一個隨機 id（續玩沿用存檔內的 id）。
+  const sessionIdRef = useRef(
+    resume?.sessionId ??
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `s-${Date.now()}-${Math.floor(Math.random() * 1e9)}`),
+  )
+  const turnCountRef = useRef(resume?.turnCount ?? 0)
   const raindropIdRef = useRef(0)
   const sceneScrollRef = useRef<HTMLDivElement>(null)
   const {
@@ -581,13 +589,18 @@ export function InvestigationScene({
   ) => {
     const sceneId = resolveRequestSceneId(targetSceneStage, investigationState)
     const requestState = addVisitedScene(investigationState, sceneId)
+    const turnIndex = turnCountRef.current
     const response = await requestKeeperTurn(playerAction, {
       checkResults,
       history: turnHistory,
       investigationState: requestState,
       sceneId,
       selectedAction,
+      sessionId: sessionIdRef.current,
+      turnIndex,
     })
+
+    turnCountRef.current = turnIndex + 1
     // 結局判定與楔子限制已由 worker 統一處理。
     const responseEffects = response.effects ?? {}
 
@@ -784,6 +797,8 @@ export function InvestigationScene({
       history: turnHistory,
       investigationState,
       investigator: investigationState.investigator,
+      sessionId: sessionIdRef.current,
+      turnCount: turnCountRef.current,
       ui: { actionOptions, checks, sceneStage, storyParagraphs },
     })
   }, [

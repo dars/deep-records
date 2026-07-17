@@ -249,6 +249,9 @@ export function sanitizeKeeperRequest(value: unknown): KeeperRequestBody {
 
   const body = value as KeeperRequestBody
 
+  const sessionId = cleanInlineText(body.sessionId, 64)
+  const turnIndex = clampNumber(body.turnIndex, 0, 99999)
+
   return {
     character: sanitizeCharacter(body.character),
     checkResults: sanitizeCheckResults(body.checkResults),
@@ -256,6 +259,9 @@ export function sanitizeKeeperRequest(value: unknown): KeeperRequestBody {
     playerAction: cleanText(body.playerAction, 500),
     sceneId: cleanInlineText(body.sceneId, 64),
     selectedAction: sanitizeSelectedAction(body.selectedAction),
+    sessionId:
+      sessionId && /^[a-zA-Z0-9-]{8,64}$/.test(sessionId) ? sessionId : undefined,
     state: sanitizeState(body.state),
+    turnIndex,
   }
 }

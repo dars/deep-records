@@ -33,6 +33,12 @@ simple = { limit = 10, period = 60 }
 binding = "TTS_CACHE"
 id = "aacd0ed8e4e94e84ae45882ba1419b84"
 
+# 遊玩事件記錄（匿名 session、回合層級）。
+[[d1_databases]]
+binding = "ANALYTICS_DB"
+database_name = "deep-records-analytics"
+database_id = "255353e6-6fa1-4755-8846-6eba19949747"
+
 [vars]
 # ElevenLabs 語音與模型；換聲音／模型改這裡即可。
 ELEVENLABS_VOICE_ID = "kbrsaic1zriFXx1pgRYN"

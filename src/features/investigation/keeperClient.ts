@@ -50,6 +50,8 @@ export async function requestKeeperTurn(
     investigationState: InvestigationState
     sceneId?: string
     selectedAction?: ActionOption
+    sessionId?: string
+    turnIndex?: number
   },
 ): Promise<KeeperResponse> {
   const investigationState = options.investigationState
@@ -68,7 +70,9 @@ export async function requestKeeperTurn(
     playerAction,
     sceneId: options.sceneId ?? investigationState.currentSceneId,
     selectedAction: options.selectedAction,
+    sessionId: options.sessionId,
     state: investigationState,
+    turnIndex: options.turnIndex,
   }
 
   const response = await fetch(keeperEndpoint, {
