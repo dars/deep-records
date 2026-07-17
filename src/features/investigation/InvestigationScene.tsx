@@ -92,7 +92,6 @@ type PendingKeeperRequest = {
   displayText?: string
   displayPrefix?: string
   kind: 'initial' | 'player-action'
-  pendingText?: string | null
   playerAction: string
   sceneStage?: SceneStage
   selectedAction?: ActionOption
@@ -354,7 +353,6 @@ export function InvestigationScene({
   const [screenRaindrops, setScreenRaindrops] = useState<ScreenRaindrop[]>([])
   const [isRollingDice, setIsRollingDice] = useState(false)
   const [isKeeperThinking, setIsKeeperThinking] = useState(false)
-  const [pendingActionText, setPendingActionText] = useState<string | null>(null)
   const [lastKeeperRequest, setLastKeeperRequest] =
     useState<PendingKeeperRequest | null>(null)
   const [keeperError, setKeeperError] = useState<string | null>(null)
@@ -449,13 +447,11 @@ export function InvestigationScene({
 
     setLastKeeperRequest({
       kind: 'initial',
-      pendingText: null,
       playerAction: prologueStartAction,
       sceneStage: 'prologue',
     })
     setSceneStage('prologue')
     setIsKeeperThinking(true)
-    setPendingActionText(null)
     setKeeperError(null)
     setChecks([])
     setRollResults([])
@@ -483,8 +479,7 @@ export function InvestigationScene({
       setKeeperError(getKeeperErrorMessage(error))
     } finally {
       setIsKeeperThinking(false)
-      setPendingActionText(null)
-    }
+      }
   }
 
   const requestApartmentEntranceScene = async () => {
@@ -494,13 +489,11 @@ export function InvestigationScene({
 
     setLastKeeperRequest({
       kind: 'initial',
-      pendingText: null,
       playerAction: apartmentEntranceStartAction,
       sceneStage: 'apartmentEntrance',
     })
     setSceneStage('apartmentEntrance')
     setIsKeeperThinking(true)
-    setPendingActionText(null)
     setKeeperError(null)
     setChecks([])
     setRollResults([])
@@ -521,8 +514,7 @@ export function InvestigationScene({
       setKeeperError(getKeeperErrorMessage(error))
     } finally {
       setIsKeeperThinking(false)
-      setPendingActionText(null)
-    }
+      }
   }
 
   useEffect(() => {
@@ -624,16 +616,12 @@ export function InvestigationScene({
       checkResults?: KeeperCheckResult[]
       displayText?: string
       displayPrefix?: string
-      pendingText?: string | null
       selectedAction?: ActionOption
     },
   ) => {
     const trimmedAction = playerAction.trim()
     const displayText = options?.displayText ?? trimmedAction
     const displayPrefix = options?.displayPrefix ?? '你選擇'
-    const pendingText =
-      options?.pendingText === undefined ? displayText : options.pendingText
-
     if (!trimmedAction || isKeeperThinking) {
       return
     }
@@ -650,13 +638,11 @@ export function InvestigationScene({
       displayText,
       displayPrefix,
       kind: 'player-action',
-      pendingText,
       playerAction: trimmedAction,
       sceneStage,
       selectedAction: options?.selectedAction,
     })
     setIsKeeperThinking(true)
-    setPendingActionText(pendingText)
     setKeeperError(null)
     setChecks([])
     setRollResults([])
@@ -682,8 +668,7 @@ export function InvestigationScene({
       setKeeperError(getKeeperErrorMessage(error))
     } finally {
       setIsKeeperThinking(false)
-      setPendingActionText(null)
-    }
+      }
   }
 
   const handleActionSelect = (option: ActionOption) => {
@@ -760,7 +745,6 @@ export function InvestigationScene({
         checkResults: rollResults,
         displayPrefix: '紀錄',
         displayText: rollRecordText,
-        pendingText: null,
       },
     )
   }
@@ -783,7 +767,6 @@ export function InvestigationScene({
     void submitPlayerAction(lastKeeperRequest.playerAction, {
       displayText: lastKeeperRequest.displayText,
       displayPrefix: lastKeeperRequest.displayPrefix,
-      pendingText: lastKeeperRequest.pendingText,
       checkResults: lastKeeperRequest.checkResults,
       selectedAction: lastKeeperRequest.selectedAction,
     })
@@ -846,7 +829,6 @@ export function InvestigationScene({
               </div>
             </div>
             <p>守密人正在翻閱潮濕的紀錄……</p>
-            {pendingActionText && <small>{pendingActionText}</small>}
           </div>
         )}
 
