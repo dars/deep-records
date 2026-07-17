@@ -16,11 +16,13 @@ import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
 import { handleOfficerArrival, processOfficerDoorPhase } from './core/officer'
 import { buildPrompt } from './core/prompt'
+import { processRitualPacing } from './core/ritual'
 import { resolveSanityEffects } from './core/sanity'
 import { sanitizeKeeperRequest } from './core/sanitize'
 import {
   enforceDiscoveryConstraints,
   ensureAvailableActions,
+  removeRepeatedActions,
   validateKeeperResponse,
 } from './core/validate'
 import { scenes } from './generated/content'
@@ -34,7 +36,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-14'
+const workerVersion = 'keeper-refactor-2026-07-17-16'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -136,8 +138,11 @@ async function handleKeeperTurn(
     body.selectedAction,
     body.state,
   )
+  // 五樓終局節奏：自由回合計數；超過寬限後阿陽強制推進儀式。
+  const ritualPacing = processRitualPacing(sceneId, body.state)
 
   let response =
+    ritualPacing?.preempt ??
     doorPhase?.preempt ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
     handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state) ??
@@ -163,14 +168,16 @@ async function handleKeeperTurn(
     ) ??
     (await runModelTurn(body, sceneId, playerAction, env))
 
-  if (doorPhase?.markFlags) {
+  const markFlags = { ...doorPhase?.markFlags, ...ritualPacing?.markFlags }
+
+  if (Object.keys(markFlags).length > 0) {
     response = {
       ...response,
       effects: {
         ...response.effects,
         setFlags: {
           ...response.effects?.setFlags,
-          ...doorPhase.markFlags,
+          ...markFlags,
         },
       },
     }
@@ -229,7 +236,7 @@ async function runModelTurn(
       genericFallbackNarration,
     )
   const constrainedResponse = enforceDiscoveryConstraints(
-    modelResponse,
+    removeRepeatedActions(modelResponse, body.history),
     sceneId,
     playerAction,
     body.state,

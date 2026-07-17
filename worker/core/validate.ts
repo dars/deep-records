@@ -155,6 +155,25 @@ export function ensureAvailableActions(
   }
 }
 
+// 玩家已執行過的行動（history 中的 playerAction）不得再次作為選項出現。
+export function removeRepeatedActions(
+  response: KeeperResponse,
+  history: Array<{ playerAction: string }> | undefined,
+): KeeperResponse {
+  if (!history || history.length === 0) {
+    return response
+  }
+
+  const pastActions = new Set(history.map((entry) => entry.playerAction.trim()))
+
+  return {
+    ...response,
+    actions: response.actions.filter(
+      (action) => !pastActions.has(action.label.trim()),
+    ),
+  }
+}
+
 export function removeAlreadyOwnedInventory(
   response: KeeperResponse,
   state?: KeeperWireState,

@@ -6,6 +6,7 @@ import type {
   TurnHistoryEntry,
 } from '../../shared/keeper'
 import { occupationAliases, occupations } from '../generated/content'
+import { countRitualTurns, isRitualClimaxForced, ritualGraceTurns } from './ritual'
 import { selectReferenceSections } from '../config/references'
 
 const coreWorldSummary = `
@@ -60,6 +61,7 @@ export function buildPrompt({
   const historySummary = formatHistory(history)
   const sanityReminder = buildSanityReminder(state)
   const officerReminder = buildOfficerReminder(state)
+  const ritualReminder = buildRitualReminder(sceneId, state)
 
   return `
 你是單人 COC 跑團遊戲《Deep Records》的守密人。
@@ -169,7 +171,7 @@ ${selectedAction ? JSON.stringify(selectedAction, null, 2) : '本次不是預設
 
 ${checkResultsSummary}
 
-${sanityReminder}${officerReminder}## 玩家動作 / 系統階段指令
+${sanityReminder}${officerReminder}${ritualReminder}## 玩家動作 / 系統階段指令
 
 ${playerAction}
 
@@ -258,6 +260,26 @@ function buildOfficerReminder(state?: KeeperWireState) {
 - ${status}${insideExtras}
 - 玩家移動、逃跑或被拖行到其他位置時，effects.nextSceneId 必須填入實際抵達的場景 id；阿陽帶領或押送玩家上五樓時（無論玩家目前在幾樓）填 "007_landlord_apartment"，且 actions 必須是五樓現場的行動。
 - 公寓已進入封鎖狀態：不得出現玩家成功離開公寓建築的敘事或選項。
+
+`
+}
+
+// 五樓終局節奏提醒：劇情必須急轉直下，選項不得重複，儀式限時收束。
+function buildRitualReminder(sceneId: string, state?: KeeperWireState) {
+  if (sceneId !== '007_landlord_apartment') {
+    return ''
+  }
+
+  const pacing = isRitualClimaxForced(state)
+    ? `- 阿陽已失去耐心並強制推進：本回合或下一回合內，房東必須完成獻祭（以匕首刺入阿宏心臟），依理智規則處理 SAN 事件，並回傳對應的 effects.endingId（玩家已真心相信且清醒目睹用 "ending_great_witness"，否則用 "ending_buried_together"；見證者資格由系統覆核）。玩家仍在拖延或反抗失敗時，直接完成儀式。`
+    : `- 阿陽的耐心有限：這是玩家在五樓的第 ${countRitualTurns(state) + 1} 回合（最多 ${ritualGraceTurns} 回合自由行動）。超過後阿陽會強制推進儀式，你的敘事應讓緊迫感逐回合明顯升高。`
+
+  return `## 五樓終局提醒（每回合必讀）
+
+- 五樓是不可逆的終局場景，劇情必須急轉直下：每一回合都要有實質的儀式推進（房東的動作、阿宏的狀態、信徒的移動、阿陽的施壓），絕對不得原地重複描述或停滯。
+${pacing}
+- actions 不得與最近回合提供過或玩家已執行過的選項重複；每回合的選項必須反映局勢的惡化與收窄。
+- 玩家的掙扎、談判與反抗依「與阿陽對抗的判定難度」處理，成功只改變過程與代價，不產生離開建築的路線。
 
 `
 }

@@ -364,3 +364,57 @@ describe('clearFlags 解除旗標', () => {
     })
   })
 })
+
+import {
+  countRitualTurns,
+  processRitualPacing,
+  ritualGraceTurns,
+} from '../worker/core/ritual'
+
+describe('五樓終局節奏', () => {
+  it('前三回合只記錄回合旗標，不搶佔', () => {
+    const turn1 = processRitualPacing('007_landlord_apartment', { flags: {} })
+
+    expect(turn1?.preempt).toBeUndefined()
+    expect(turn1?.markFlags).toEqual({ fifth_floor_turn_1: true })
+
+    const turn3 = processRitualPacing('007_landlord_apartment', {
+      flags: { fifth_floor_turn_1: true, fifth_floor_turn_2: true },
+    })
+
+    expect(turn3?.markFlags).toEqual({ fifth_floor_turn_3: true })
+  })
+
+  it('超過寬限回合後，阿陽失去耐心並強制推進', () => {
+    const result = processRitualPacing('007_landlord_apartment', {
+      flags: {
+        fifth_floor_turn_1: true,
+        fifth_floor_turn_2: true,
+        fifth_floor_turn_3: true,
+      },
+    })
+
+    expect(result?.preempt?.effects?.setFlags?.ritual_forced_climax).toBe(true)
+    expect(result?.preempt?.effects?.setFlags?.officer_player_restrained).toBe(true)
+    expect(result?.preempt?.narration.join('')).toContain('耐性')
+  })
+
+  it('強制推進後不再重複觸發，交給模型收束', () => {
+    expect(
+      processRitualPacing('007_landlord_apartment', {
+        flags: { ritual_forced_climax: true },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('非五樓場景不啟動', () => {
+    expect(
+      processRitualPacing('003_friend_apartment_livingroom', { flags: {} }),
+    ).toBeUndefined()
+  })
+
+  it('回合計數與寬限常數一致', () => {
+    expect(ritualGraceTurns).toBe(3)
+    expect(countRitualTurns({ flags: { fifth_floor_turn_1: true } })).toBe(1)
+  })
+})

@@ -141,3 +141,35 @@ describe('ensureAvailableActions', () => {
     expect(ensured.actions).toEqual([])
   })
 })
+
+import { removeRepeatedActions } from '../worker/core/validate'
+
+describe('removeRepeatedActions', () => {
+  it('玩家已執行過的行動不再作為選項出現', () => {
+    const response = removeRepeatedActions(
+      {
+        actions: [
+          { id: 'a', label: '試著跟房東談判，問他想要什麼' },
+          { id: 'b', label: '觀察三名信徒的站位' },
+        ],
+        checks: [],
+        narration: ['……'],
+      },
+      [
+        { playerAction: '試著跟房東談判，問他想要什麼' },
+        { playerAction: '跨進五樓' },
+      ],
+    )
+
+    expect(response.actions.map((a) => a.id)).toEqual(['b'])
+  })
+
+  it('沒有歷史時原樣返回', () => {
+    const response = removeRepeatedActions(
+      { actions: [{ id: 'a', label: 'x' }], checks: [], narration: [] },
+      undefined,
+    )
+
+    expect(response.actions).toHaveLength(1)
+  })
+})
