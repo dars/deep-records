@@ -25,12 +25,13 @@ const actionBeliefSignals = [
   'accept_myth_cost',
 ]
 
-const observationBeliefSignals = [
+export const observationBeliefSignals = [
   'none',
   'rational_investigation',
   'withhold_judgment',
   'propose_myth',
   'test_myth',
+  'rely_on_myth',
   'rely_on_verified_myth',
   'accept_myth_cost',
 ]

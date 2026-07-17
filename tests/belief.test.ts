@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { KeeperResponse } from '../shared/keeper'
 import { computeBeliefUpdate, gateWitnessEnding } from '../worker/core/belief'
+import { observationBeliefSignals } from '../worker/core/gemini'
+import { beliefSignals } from '../shared/keeper'
 
 function stateWithLog(signalLog: string[], stage?: string) {
   return {
@@ -142,5 +144,15 @@ describe('gateWitnessEnding：見證者資格守門', () => {
     )
 
     expect(gated.effects?.endingId).toBe('ending_truth_in_hand')
+  })
+})
+
+describe('observation schema 與信念訊號的一致性', () => {
+  it('模型可發出的 observation 訊號涵蓋所有共享信念訊號', () => {
+    // reducer 只吃 observation.signal；enum 漏列任何訊號都會讓該階梯永遠無法觸發
+    // （曾漏列 rely_on_myth，導致最基本的依賴訊號記錄不到）。
+    for (const signal of beliefSignals) {
+      expect(observationBeliefSignals).toContain(signal)
+    }
   })
 })

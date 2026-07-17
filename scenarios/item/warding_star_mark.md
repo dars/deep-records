@@ -31,9 +31,13 @@ references: [item_hidden_memory_card, item_friend_laptop, belief_rules]
 
 ## 玩家依據符號採取行動時
 
-- 只是發現刻痕、閱讀相關記載或拍照存證，屬於神話暴露與理解，不等同相信。
-- 玩家若基於「相信它具有保護力」而描摹攜帶、刻在門上、刻在自己身邊，或在對峙時舉出它，構成 test_myth 或 rely_on_myth 訊號；mythRuleId 一律沿用 `warding_star_mark`，使多次行動累積在同一條神話規則上。
-- 玩家出於好奇模仿塗鴉、或只是把它當成證據記錄，不得自動判定為相信。
+- 玩家越相信符號的效力，行為就越誠實：試圖使用、刻印在物件上、畫下來帶著，全部都是信念證據。詳細的訊號階梯定義在 `belief_rules` 的「守護刻痕（warding_star_mark）的信念階梯」，以該處為準：
+  - 首次描摹、畫下或拍下帶在身上 → `test_myth`。
+  - 刻印在門、窗、物件、隨身物上，或在危險中舉出、依它決定行動 → `rely_on_myth`。
+  - 主觀認為它生效過之後再度依賴 → `rely_on_verified_myth`。
+  - 高代價下仍刻印（時間壓力、被制伏、刻在自己身上）→ `accept_myth_cost`。
+- mythRuleId 一律沿用 `warding_star_mark`，使多次行動累積在同一條神話規則上。
+- 只有兩種情況不算：玩家明說只是存證、比對或蒐集犯罪證據（`rational_investigation`）；未讀過任何保護宣稱的玩家單純模仿塗鴉（`none`）。
 
 ## 無法確認的部分
 
