@@ -9,6 +9,7 @@ import {
   createKeeperFallbackResponse,
   handleDeterministicInvestigationAction,
   handleDeterministicSceneTransition,
+  handleScriptedInvestigation,
 } from './core/deterministic'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
@@ -30,7 +31,7 @@ type Env = {
   KEEPER_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-refactor-2026-07-17-2'
+const workerVersion = 'keeper-refactor-2026-07-17-3'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -126,6 +127,12 @@ async function handleKeeperTurn(
 
   const response =
     handleDeterministicSceneTransition(
+      sceneId,
+      playerAction,
+      body.selectedAction,
+      body.state,
+    ) ??
+    handleScriptedInvestigation(
       sceneId,
       playerAction,
       body.selectedAction,

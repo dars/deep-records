@@ -349,3 +349,338 @@ export function createKeeperFallbackResponse(
     },
   }
 }
+
+// 劇本腳本流程：條件成立時完全不需要模型，直接回覆固定敘事。
+// 這些回合的敘事與效果都是確定的，交給模型只會增加延遲與失敗風險。
+export function handleScriptedInvestigation(
+  sceneId: string,
+  playerAction: string,
+  selectedAction?: KeeperAction,
+  state?: KeeperWireState,
+): KeeperResponse | undefined {
+  const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+  const inventory = new Set(state?.inventory ?? [])
+  const flags = state?.flags ?? {}
+  const hasSpareKeyring = inventory.has('item_friend_apartment_spare_key')
+  const ironDoorWasOpened = flags.friend_apartment_iron_door_opened === true
+  const attemptsApartmentUnlock =
+    /(?:鑰匙|開鎖|開門|解鎖)/.test(actionText) &&
+    /(?:鐵門|木門|大門|住處|進屋|門)/.test(actionText)
+
+  if (
+    sceneId === '002_friend_apartment' &&
+    hasSpareKeyring &&
+    !ironDoorWasOpened &&
+    attemptsApartmentUnlock
+  ) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'unlock-inner-wooden-door',
+          label: '拿另一把鑰匙開啟後方木門',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-space-between-doors',
+          label: '先檢查兩道門之間與木門鎖孔',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'step-back-from-friend-door',
+          label: '暫時不開木門，退回公共樓梯間',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          friend_apartment_iron_door_opened: true,
+        },
+      },
+      narration: [
+        '透明夾鏈袋裡不是單獨一把鑰匙，而是一只掛著兩把鑰匙的小鑰匙圈。你逐一試過後，其中一把順利插進外側紅色鐵門的鎖孔。',
+        '鏽蝕鐵門伴著沉重金屬聲向外開啟，露出後方仍然緊閉的木門。兩道門之間只隔著狹窄一步；屋內尚未打開，只有樓梯間的濕氣停留在門前。',
+      ],
+      observation: {
+        reason: '玩家使用備用鑰匙開啟外側鐵門。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  if (
+    sceneId === '002_friend_apartment' &&
+    hasSpareKeyring &&
+    ironDoorWasOpened &&
+    attemptsApartmentUnlock
+  ) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-living-room-table',
+          label: '先查看客廳木桌上凌亂的文件與雜物',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'survey-living-room',
+          label: '環顧客廳，確認還有哪些物品值得調查',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'step-back-to-apartment-door',
+          label: '暫時退回玄關與門口，確認退路',
+        },
+      ],
+      checks: [],
+      effects: {
+        nextSceneId: '003_friend_apartment_livingroom',
+        setFlags: {
+          friend_apartment_wooden_door_opened: true,
+        },
+      },
+      narration: [
+        '你換上鑰匙圈上的另一把鑰匙。這一次，後方木門的鎖芯在短暫阻滯後鬆開，門板向內退開一道縫。',
+        '一股被封在屋內的濕冷氣味迎面湧出。那不是單純的霉味，空氣裡帶著濃重鹹味，混合腐敗海產、積水與潮濕污泥般的腥臭。',
+        '你跨過門檻，鞋底在玄關磁磚上短暫黏住，又被迫剝離。玄關往內連著客廳；熟悉的沙發、木桌與過大的電視都在昏暗光線裡安靜地等著。',
+      ],
+      observation: {
+        reason: '玩家使用備用鑰匙開啟木門並進入屋內。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  return handleLivingRoomTablePuzzle(sceneId, actionText, state)
+}
+
+// 客廳木桌抽屜的多段式發現流程：桌面 → 抽屜 → 察覺深度異常 → 取得記憶卡。
+function handleLivingRoomTablePuzzle(
+  sceneId: string,
+  actionText: string,
+  state?: KeeperWireState,
+): KeeperResponse | undefined {
+  if (
+    sceneId !== '003_friend_apartment_livingroom' ||
+    !/木桌|桌子|抽屜/.test(actionText)
+  ) {
+    return undefined
+  }
+
+  const flags = state?.flags ?? {}
+  const tableWasExamined = flags.living_room_table_surface_examined === true
+  const drawerWasOpened = flags.living_room_table_drawer_opened === true
+  const hiddenSpaceWasSuspected =
+    flags.living_room_table_hidden_space_suspected === true
+  const memoryCardWasFound =
+    flags.hidden_memory_card_found === true ||
+    state?.inventory?.includes('item_hidden_memory_card') === true
+  const closesDrawer = /關上|關起|關閉|推回|闔上/.test(actionText)
+  const opensDrawer = /打開|拉開|抽開/.test(actionText)
+  const removesDrawer = /完全抽出|整個抽出|完全拉出|整個拉出|拆出|取出抽屜/.test(
+    actionText,
+  )
+  const investigatesHiddenSpace =
+    /後方空間|奇怪空間|隱藏空間|抽屜後|桌身深處|伸手.*後方|摸索.*後方/.test(
+      actionText,
+    )
+  const investigatesDrawer =
+    /調查抽屜|檢查抽屜|翻找抽屜|移開雜物|檢查木軌|比較.*深度|量.*深度|抽屜深處/.test(
+      actionText,
+    )
+
+  if (memoryCardWasFound) {
+    // 已取得記憶卡後的回訪交給模型敘事；重複發放由守門邏輯擋下。
+    return undefined
+  }
+
+  if (!tableWasExamined) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'open-living-room-table-drawer',
+          label: '拉開剛發現的寬大抽屜',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-table-documents',
+          label: '查看桌上的信件與工作文件',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'leave-table-for-now',
+          label: '暫時不動桌子，改查客廳其他地方',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          living_room_table_surface_examined: true,
+        },
+      },
+      narration: [
+        '你移開桌面上散亂的信件、工作文件、零食與啤酒罐，沿著刮痕累累的桌緣仔細查看。這些凌亂更像長期生活留下的痕跡，不像有人匆忙翻找過。',
+        '彎身檢查桌身時，你才注意到桌面下方嵌著一個寬大的木製抽屜。抽屜仍然關著，從外面看不出裡頭放了什麼。',
+      ],
+      observation: {
+        reason: '玩家開始調查客廳木桌。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  if (hiddenSpaceWasSuspected && (investigatesHiddenSpace || removesDrawer)) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'read-memory-card-now',
+          label: '拿出可用的設備，立刻嘗試讀取這張記憶卡',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'pocket-memory-card-for-now',
+          label: '先把記憶卡收好，繼續調查客廳',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'recheck-hidden-space',
+          label: '再檢查一次夾層空間，確認沒有其他東西',
+        },
+      ],
+      checks: [],
+      effects: {
+        addInventory: ['item_hidden_memory_card'],
+        discoverClues: ['木桌抽屜後方的記憶卡'],
+        setFlags: {
+          hidden_memory_card_found: true,
+          living_room_table_drawer_opened: true,
+          living_room_table_hidden_space_suspected: true,
+        },
+      },
+      narration: [
+        '你重新把抽屜整個抽出，將手伸進桌身深處那段不該存在的空間。指尖越過木軌末端，在積灰的夾層底板上觸到一個以膠帶固定的小型硬物。',
+        '撕下膠帶，那是一個透明的記憶卡盒，裡面躺著一張 microSD。卡盒外纏著一張折疊過的便條紙，字跡倉促卻仍能辨認：「我已經來不及了。裡面記載的所有事實，請傳出去。」',
+        '阿宏把它藏得這麼深，顯然不打算讓隨手翻找的人發現。這張卡片此刻安靜地停在你的掌心，比屋內任何東西都更像他留下的最後訊息。',
+      ],
+      observation: {
+        reason: '玩家依據抽屜深度與異響線索，找到藏在夾層裡的記憶卡。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  if (!drawerWasOpened && (opensDrawer || /抽屜/.test(actionText))) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-open-table-drawer',
+          label: '移開雜物，仔細調查抽屜內部',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-drawer-contents',
+          label: '逐一查看抽屜裡的生活雜物',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'close-table-drawer',
+          label: '先關上抽屜，改查客廳其他地方',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          living_room_table_drawer_opened: true,
+        },
+      },
+      narration: [
+        '寬大的抽屜拉開時有些卡頓，木軌摩擦出乾澀聲響。裡頭塞著指甲剪、面紙、開瓶器、打火機與幾樣隨手收進去的生活雜物。',
+        '這些東西沒有特別整理，彼此疊壓在一起。單純把抽屜拉開，還看不出它與普通雜物抽屜有什麼不同。',
+      ],
+      observation: {
+        reason: '玩家拉開木桌抽屜。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  if (drawerWasOpened && closesDrawer) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'reopen-drawer-after-noise',
+          label: '重新拉開抽屜，調查聲音傳出的後方空間',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-table-back-after-noise',
+          label: '從桌子外側確認抽屜後方是否留有空間',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'leave-noisy-drawer-alone',
+          label: '暫時不碰抽屜，改查客廳其他地方',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          living_room_table_drawer_noise_heard: true,
+          living_room_table_drawer_opened: false,
+          living_room_table_hidden_space_suspected: true,
+        },
+      },
+      narration: [
+        '你把抽屜推回桌身。就在它快要完全閉合時，木桌深處傳出一聲短促而悶住的異響，不像木軌摩擦，更像薄塑膠被抽屜後緣擠壓了一下。',
+        '抽屜最後仍能關上，但那個聲音顯示它後方碰到了某樣不該存在的東西。從正面看去，桌身依舊沒有任何開口。',
+      ],
+      observation: {
+        reason: '玩家關抽屜時聽見後方異響。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  if (drawerWasOpened && !hiddenSpaceWasSuspected && (investigatesDrawer || investigatesHiddenSpace || removesDrawer)) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-hidden-space-behind-drawer',
+          label: '伸手調查抽屜後方的奇怪空間',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'remove-drawer-after-depth-check',
+          label: '把抽屜整個抽出來查看後方',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'close-drawer-after-depth-check',
+          label: '先關上抽屜，聽聽是否會碰到後方物體',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          living_room_table_drawer_opened: true,
+          living_room_table_hidden_space_suspected: true,
+        },
+      },
+      narration: [
+        '你把雜物移開，沿著抽屜內壁與木軌慢慢檢查。抽屜底板本身沒有夾層，但它的內部深度明顯比木桌外側量起來短了一截。',
+        '從木軌末端與桌身陰影判斷，抽屜後方似乎還留著一小段正常使用時看不見的空間。裡面是否真的有東西，仍得伸手確認或把抽屜完全取出。',
+      ],
+      observation: {
+        reason: '玩家發現抽屜深度與桌身不符。',
+        signal: 'rational_investigation',
+      },
+    }
+  }
+
+  return undefined
+}

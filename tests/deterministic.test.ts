@@ -131,3 +131,130 @@ describe('inferEnding', () => {
     ).toBeUndefined()
   })
 })
+
+import { handleScriptedInvestigation } from '../worker/core/deterministic'
+import { enforceDiscoveryConstraints } from '../worker/core/validate'
+
+describe('handleScriptedInvestigation：木桌抽屜謎題', () => {
+  it('第一次調查木桌：發現抽屜', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '查看客廳木桌上凌亂的文件與雜物',
+      undefined,
+      { flags: {} },
+    )
+
+    expect(response?.effects?.setFlags?.living_room_table_surface_examined).toBe(true)
+    expect(response?.narration.join('')).toContain('木製抽屜')
+  })
+
+  it('拉開抽屜', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '拉開剛發現的寬大抽屜',
+      undefined,
+      { flags: { living_room_table_surface_examined: true } },
+    )
+
+    expect(response?.effects?.setFlags?.living_room_table_drawer_opened).toBe(true)
+  })
+
+  it('關抽屜聽到異響，標記隱藏空間', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '先關上抽屜，改查客廳其他地方',
+      undefined,
+      {
+        flags: {
+          living_room_table_surface_examined: true,
+          living_room_table_drawer_opened: true,
+        },
+      },
+    )
+
+    expect(
+      response?.effects?.setFlags?.living_room_table_hidden_space_suspected,
+    ).toBe(true)
+  })
+
+  it('伸手調查隱藏空間：確定性地取得記憶卡與完整敘事', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '伸手調查抽屜後方的奇怪空間',
+      { id: 'inspect-hidden-space-behind-drawer', label: '伸手調查抽屜後方的奇怪空間' },
+      {
+        flags: {
+          living_room_table_surface_examined: true,
+          living_room_table_drawer_opened: true,
+          living_room_table_hidden_space_suspected: true,
+        },
+      },
+    )
+
+    expect(response?.effects?.addInventory).toEqual(['item_hidden_memory_card'])
+    expect(response?.narration.join('')).toContain('microSD')
+    expect(response?.actions.length).toBeGreaterThan(0)
+  })
+
+  it('已取得記憶卡後回訪抽屜交給模型處理', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '再檢查一次抽屜',
+      undefined,
+      { inventory: ['item_hidden_memory_card'], flags: {} },
+    )
+
+    expect(response).toBeUndefined()
+  })
+})
+
+describe('handleScriptedInvestigation：四樓門鎖', () => {
+  it('持鑰匙第一次開門：開啟鐵門', () => {
+    const response = handleScriptedInvestigation(
+      '002_friend_apartment',
+      '拿出備用鑰匙圈，嘗試打開外側紅色鐵門',
+      undefined,
+      { inventory: ['item_friend_apartment_spare_key'], flags: {} },
+    )
+
+    expect(response?.effects?.setFlags?.friend_apartment_iron_door_opened).toBe(true)
+    expect(response?.effects?.nextSceneId).toBeUndefined()
+  })
+
+  it('鐵門已開再用鑰匙：開木門並進入客廳', () => {
+    const response = handleScriptedInvestigation(
+      '002_friend_apartment',
+      '拿另一把鑰匙開啟後方木門',
+      undefined,
+      {
+        inventory: ['item_friend_apartment_spare_key'],
+        flags: { friend_apartment_iron_door_opened: true },
+      },
+    )
+
+    expect(response?.effects?.nextSceneId).toBe('003_friend_apartment_livingroom')
+    expect(response?.effects?.setFlags?.friend_apartment_wooden_door_opened).toBe(true)
+  })
+})
+
+describe('enforceDiscoveryConstraints：記憶卡提前洩漏防護', () => {
+  it('玩家尚未察覺隱藏空間時，模型擅自發放記憶卡會被擋下', () => {
+    const constrained = enforceDiscoveryConstraints(
+      {
+        actions: [],
+        checks: [],
+        effects: {
+          addInventory: ['item_hidden_memory_card'],
+          discoverClues: ['神秘記憶卡'],
+        },
+        narration: ['模型自作主張的敘事。'],
+      },
+      '003_friend_apartment_livingroom',
+      '隨便看看沙發',
+      { flags: {} },
+    )
+
+    expect(constrained.effects?.addInventory).toEqual([])
+    expect(constrained.effects?.discoverClues).toEqual([])
+  })
+})

@@ -101,22 +101,30 @@ export async function callGeminiKeeper(
   env: GeminiEnv,
   prompt: string,
 ): Promise<KeeperResponse | undefined> {
-  const text = await generateGeminiText(env, prompt)
-  let parsed: Record<string, unknown>
+  // 解析失敗時重新取樣一次（截斷或格式錯誤通常是偶發），仍失敗才交給 fallback。
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const text = await generateGeminiText(env, prompt)
 
-  try {
-    parsed = parseKeeperJson(text)
-  } catch {
-    return undefined
+    try {
+      const parsed = parseKeeperJson(text)
+
+      return {
+        actions: normalizeActions(parsed.actions),
+        checks: normalizeChecks(parsed.checks),
+        effects: normalizeEffects(parsed.effects),
+        narration: normalizeNarration(parsed.narration).map(completeAbruptNarration),
+        observation: normalizeObservation(parsed.observation),
+      }
+    } catch {
+      console.error(
+        'keeper_json_parse_failed',
+        `attempt=${attempt + 1}`,
+        text.slice(0, 300),
+      )
+    }
   }
 
-  return {
-    actions: normalizeActions(parsed.actions),
-    checks: normalizeChecks(parsed.checks),
-    effects: normalizeEffects(parsed.effects),
-    narration: normalizeNarration(parsed.narration).map(completeAbruptNarration),
-    observation: normalizeObservation(parsed.observation),
-  }
+  return undefined
 }
 
 async function generateGeminiText(env: GeminiEnv, prompt: string) {
@@ -128,7 +136,8 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
       },
     ],
     generationConfig: {
-      maxOutputTokens: 3000,
+      // 需要足夠餘裕容納模型的 thinking token 與完整 JSON，太低會導致輸出被截斷。
+      maxOutputTokens: 8192,
       responseMimeType: 'application/json',
       responseSchema: keeperResponseSchema,
       temperature: 0.8,
@@ -200,11 +209,19 @@ function extractGeminiText(data: Record<string, unknown>) {
         content?: {
           parts?: Array<{ text?: string }>
         }
+        finishReason?: string
       }
     | undefined
-  const text = firstCandidate?.content?.parts?.[0]?.text
 
-  if (typeof text !== 'string') {
+  if (firstCandidate?.finishReason && firstCandidate.finishReason !== 'STOP') {
+    console.error('keeper_gemini_finish_reason', firstCandidate.finishReason)
+  }
+
+  const text = firstCandidate?.content?.parts
+    ?.map((part) => part.text ?? '')
+    .join('')
+
+  if (!text) {
     throw new Error('Gemini response missing text')
   }
 
