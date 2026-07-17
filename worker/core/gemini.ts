@@ -127,8 +127,36 @@ export async function callGeminiKeeper(
   return undefined
 }
 
-async function generateGeminiText(env: GeminiEnv, prompt: string) {
-  const requestBody = JSON.stringify({
+// 限制模型思考深度是延遲的最大槓桿：守密人回合以格式化與敘事為主，
+// 不需要深度推理。不同 Gemini 世代的欄位不同，遇到 400 時自動降級：
+// thinkingLevel（Gemini 3 系列）→ thinkingBudget（2.5 系列）→ 不帶參數。
+type ThinkingMode = 'level' | 'budget' | 'none'
+
+let thinkingMode: ThinkingMode = 'level'
+
+function downgradeThinkingMode(): boolean {
+  if (thinkingMode === 'level') {
+    thinkingMode = 'budget'
+    return true
+  }
+
+  if (thinkingMode === 'budget') {
+    thinkingMode = 'none'
+    return true
+  }
+
+  return false
+}
+
+function buildRequestBody(prompt: string) {
+  const thinkingConfig =
+    thinkingMode === 'level'
+      ? { thinkingLevel: 'low' }
+      : thinkingMode === 'budget'
+        ? { thinkingBudget: 0 }
+        : undefined
+
+  return JSON.stringify({
     contents: [
       {
         parts: [{ text: prompt }],
@@ -136,26 +164,32 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
       },
     ],
     generationConfig: {
-      // 需要足夠餘裕容納模型的 thinking token 與完整 JSON，太低會導致輸出被截斷。
+      // 需要足夠餘裕容納完整 JSON 與殘餘 thinking token，太低會導致輸出被截斷。
       maxOutputTokens: 8192,
       responseMimeType: 'application/json',
       responseSchema: keeperResponseSchema,
       temperature: 0.8,
+      ...(thinkingConfig ? { thinkingConfig } : {}),
     },
   })
+}
 
+async function generateGeminiText(env: GeminiEnv, prompt: string) {
   let lastError: Error | undefined
+  let attempts = 0
+  // 一般錯誤最多重試一次；thinkingConfig 欄位不相容的降級重試另計（最多兩次）。
+  const maxAttempts = 2 + 2
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempts >= 2) {
+      break
     }
 
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
         {
-          body: requestBody,
+          body: buildRequestBody(prompt),
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': env.GEMINI_API_KEY,
@@ -167,9 +201,21 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
 
       if (!response.ok) {
         const errorBody = await response.text()
+
+        if (
+          response.status === 400 &&
+          /thinking/i.test(errorBody) &&
+          downgradeThinkingMode()
+        ) {
+          console.error('keeper_thinking_mode_downgraded', thinkingMode)
+          continue
+        }
+
         lastError = new Error(`Gemini HTTP ${response.status}: ${errorBody.slice(0, 500)}`)
 
         if (retryableStatuses.has(response.status)) {
+          attempts += 1
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
           continue
         }
 
@@ -191,6 +237,9 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
       if (!isAbortOrNetwork) {
         throw lastError
       }
+
+      attempts += 1
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
     }
   }
 

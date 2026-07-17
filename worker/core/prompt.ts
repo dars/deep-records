@@ -133,6 +133,12 @@ ${coreWorldSummary}
 
 ${worldContext}
 
+## 目前場景
+
+sceneId: ${sceneId}
+
+${scene}
+
 ## 角色職業設定
 
 ${occupation}
@@ -156,12 +162,6 @@ ${selectedAction ? JSON.stringify(selectedAction, null, 2) : '本次不是預設
 ## 本次擲骰結果
 
 ${checkResultsSummary}
-
-## 目前場景
-
-sceneId: ${sceneId}
-
-${scene}
 
 ## 玩家動作 / 系統階段指令
 
