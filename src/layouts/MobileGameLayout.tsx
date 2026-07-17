@@ -154,6 +154,8 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
   const [itemReveal, setItemReveal] = useState<ItemRevealRecord | null>(null)
   const [isMusicEnabled, setIsMusicEnabled] = useState(true)
   const [hasMusicStarted, setHasMusicStarted] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [bgmVolume, setBgmVolume] = useState(() => audioManager.getBgmVolume())
   const currentHitPoints =
     investigationState.hitPoints?.current ?? investigator.hitPoints
   const maxHitPoints = investigationState.hitPoints?.max ?? investigator.hitPoints
@@ -240,7 +242,13 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
     <main className="app-shell" aria-labelledby="page-title">
       <div className="reading-frame">
         <header className="page-header">
-          <button className="icon-button menu-button" type="button" aria-label="開啟選單">
+          <button
+            className="icon-button menu-button"
+            type="button"
+            aria-label="開啟選單"
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen(true)}
+          >
             <Category set="light" size="large" />
           </button>
           <h1 id="page-title">{title}</h1>
@@ -276,6 +284,59 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
           <p className="scene-meta">7月15日　深夜 01:17　☁</p>
         </header>
         {children({ showItemReveal })}
+        {isMenuOpen && (
+          <div
+            className="menu-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="menu-title"
+          >
+            <button
+              className="character-backdrop"
+              type="button"
+              aria-label="關閉選單"
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <section className="menu-panel">
+              <header className="menu-panel-header">
+                <div>
+                  <p className="menu-kicker">DEEP RECORDS</p>
+                  <h2 id="menu-title">調查設定</h2>
+                </div>
+                <button
+                  className="character-close"
+                  type="button"
+                  aria-label="關閉選單"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  ×
+                </button>
+              </header>
+
+              <label className="menu-volume">
+                <span>背景音樂音量</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={bgmVolume}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    setBgmVolume(value)
+                    audioManager.setBgmVolume(value)
+                  }}
+                />
+                <small>{Math.round(bgmVolume * 100)}%</small>
+              </label>
+
+              <footer className="menu-panel-footer">
+                <p>版本 v{__APP_VERSION__}</p>
+                <p className="menu-studio">code4soul</p>
+              </footer>
+            </section>
+          </div>
+        )}
         {itemReveal && (
           <button
             className="item-reveal-overlay"

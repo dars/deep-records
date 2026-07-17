@@ -22,11 +22,23 @@ const sfxTracks = {
 
 export type SfxName = keyof typeof sfxTracks
 
-const bgmVolume = 0.55
-const duckedVolume = 0.12
+const defaultBgmVolume = 0.55
+const duckRatio = 0.22
 const sfxVolume = 0.85
 const crossfadeMs = 2600
 const fadeTickMs = 50
+const volumeStorageKey = 'deep-records/bgm-volume'
+
+function loadStoredVolume(): number {
+  try {
+    const raw = window.localStorage.getItem(volumeStorageKey)
+    const value = raw === null ? NaN : Number(raw)
+
+    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : defaultBgmVolume
+  } catch {
+    return defaultBgmVolume
+  }
+}
 
 class AudioManager {
   private enabled = true
@@ -37,9 +49,28 @@ class AudioManager {
   private fadeTimer: number | null = null
   private ducked = false
   private sfxPool = new Map<SfxName, HTMLAudioElement>()
+  private baseVolume = loadStoredVolume()
 
   private targetVolume() {
-    return this.ducked ? duckedVolume : bgmVolume
+    return this.ducked ? this.baseVolume * duckRatio : this.baseVolume
+  }
+
+  getBgmVolume(): number {
+    return this.baseVolume
+  }
+
+  setBgmVolume(volume: number) {
+    this.baseVolume = Math.min(1, Math.max(0, volume))
+
+    try {
+      window.localStorage.setItem(volumeStorageKey, String(this.baseVolume))
+    } catch {
+      // 靜默略過
+    }
+
+    if (this.active && this.fadeTimer === null) {
+      this.active.volume = this.targetVolume()
+    }
   }
 
   private createTrack(mood: Exclude<BgmMood, 'silent'>): HTMLAudioElement {
