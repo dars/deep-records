@@ -148,6 +148,43 @@
   letter-spacing: 0.055em;
 }
 
+.setup-resume {
+  display: grid;
+  gap: var(--space-2);
+  border: 1px solid rgba(148, 213, 185, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(4, 16, 14, 0.5);
+  padding: var(--space-3);
+}
+
+.setup-resume p {
+  margin: 0;
+  color: rgba(202, 195, 176, 0.92);
+  font-family: var(--font-serif);
+  line-height: 1.7;
+  letter-spacing: 0.05em;
+}
+
+.setup-resume button {
+  min-height: 2.8rem;
+  border: 1px solid rgba(126, 190, 162, 0.36);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(34, 79, 65, 0.7), rgba(13, 38, 33, 0.85)),
+    rgba(4, 16, 14, 0.5);
+  color: rgba(211, 221, 204, 0.92);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+}
+
+.setup-resume-note {
+  color: rgba(133, 144, 128, 0.75);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+
 .setup-form {
   display: grid;
   gap: var(--space-4);

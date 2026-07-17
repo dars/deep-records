@@ -1,45 +1,19 @@
-export type BeliefStage =
-  | 'skeptical'
-  | 'hypothesis'
-  | 'operational'
-  | 'convinced'
+import type { BeliefStage, KeeperAction } from '../../shared/keeper'
 
-export type BeliefSignal =
-  | 'none'
-  | 'rational_investigation'
-  | 'withhold_judgment'
-  | 'propose_myth'
-  | 'test_myth'
-  | 'rely_on_myth'
-  | 'rely_on_verified_myth'
-  | 'accept_myth_cost'
+export type {
+  BeliefObservation,
+  BeliefSignal,
+  BeliefStage,
+  InvestigationEffects,
+  KeeperAction,
+  KeeperCheck,
+  KeeperCheckResult,
+  KeeperResponse,
+  TurnHistoryEntry,
+} from '../../shared/keeper'
 
-export type ActionOption = {
-  beliefSignal?: BeliefSignal
-  id: string
-  label: string
-  mythRuleId?: string
-}
-
-export type BeliefObservation = {
-  mythRuleId?: string
-  reason?: string
-  signal: BeliefSignal
-}
-
-export type InvestigationEffects = {
-  addInventory?: string[]
-  discoverClues?: string[]
-  endingId?: string
-  endingTitle?: string
-  hitPointDelta?: number
-  nextSceneId?: string
-  removeInventory?: string[]
-  sanityDelta?: number
-  setFlags?: Record<string, boolean>
-  testedMythRuleId?: string
-  verifiedMythRuleId?: string
-}
+// 前端沿用的名稱：與 Keeper 協定中的 KeeperAction 相同。
+export type ActionOption = KeeperAction
 
 export type SanityState = {
   current: number

@@ -9,6 +9,7 @@ exit_condition: 玩家返回廚房
 trigger_condition: 玩家穿過廚房進入小陽台
 music_mood: tense
 sanity_cost: 0
+references: [character_lin_xian_hong, character_landlord]
 ---
 
 ## 感官描述（給玩家的初次印象）

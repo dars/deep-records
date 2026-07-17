@@ -5,14 +5,19 @@ import {
   defaultOccupationOption,
   occupationOptions,
 } from '../data/occupations'
+import type { SavedGame } from '../features/investigation/saveGame'
 import type { InvestigatorProfile } from '../types/investigation'
 
 type InvestigatorSetupPageProps = {
+  onContinueSavedGame?: () => void
   onCreateInvestigator: (investigator: InvestigatorProfile) => void
+  savedGame?: SavedGame | null
 }
 
 export function InvestigatorSetupPage({
+  onContinueSavedGame,
   onCreateInvestigator,
+  savedGame,
 }: InvestigatorSetupPageProps) {
   const [name, setName] = useState('')
   const [occupationId, setOccupationId] = useState(defaultOccupationOption?.id ?? '')
@@ -45,6 +50,19 @@ export function InvestigatorSetupPage({
         <p className="setup-copy">
           雨夜的紀錄還沒有名字。先留下調查者的身分，再打開那則朋友傳來的訊息。
         </p>
+
+        {savedGame && onContinueSavedGame && (
+          <section className="setup-resume" aria-label="繼續上次調查">
+            <p>
+              找到一份未完成的調查紀錄：{savedGame.investigator.name}（
+              {savedGame.investigator.occupationTitle}）
+            </p>
+            <button type="button" onClick={onContinueSavedGame}>
+              繼續上次調查
+            </button>
+            <p className="setup-resume-note">建立新調查者將覆蓋這份紀錄。</p>
+          </section>
+        )}
 
         <form className="setup-form" onSubmit={handleSubmit}>
           <label>

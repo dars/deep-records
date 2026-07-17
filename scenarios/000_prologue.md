@@ -5,6 +5,7 @@ title: 雨夜的委託
 next_scene: 001_apartment_entrance
 trigger_condition: 遊戲開始自動觸發
 music_mood: rainy
+references: [character_lin_xian_hong]
 ---
 
 ## 玩家已知背景

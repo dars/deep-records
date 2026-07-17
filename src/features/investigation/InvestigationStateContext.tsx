@@ -21,7 +21,7 @@ type InvestigationStateContextValue = {
   reduceInvestigationState: (
     observation?: BeliefObservation,
     effects?: InvestigationEffects,
-    baseState?: InvestigationState,
+    options?: { visitSceneId?: string },
   ) => void
   setInvestigationState: Dispatch<SetStateAction<InvestigationState>>
 }
@@ -149,26 +149,34 @@ export function addVisitedScene(
 }
 
 type InvestigationStateProviderProps = PropsWithChildren<{
+  initialState?: InvestigationState
   investigator?: InvestigatorProfile
 }>
 
 export function InvestigationStateProvider({
   children,
+  initialState,
   investigator,
 }: InvestigationStateProviderProps) {
-  const [investigationState, setInvestigationState] = useState(() =>
-    investigator
-      ? createInitialInvestigationState(investigator)
-      : initialInvestigationState,
+  const [investigationState, setInvestigationState] = useState(
+    () =>
+      initialState ??
+      (investigator
+        ? createInitialInvestigationState(investigator)
+        : initialInvestigationState),
   )
 
   const value = useMemo<InvestigationStateContextValue>(
     () => ({
       investigationState,
-      reduceInvestigationState: (observation, effects, baseState) => {
+      // 一律以 functional update 為基底 reduce，避免以請求發出當下的
+      // 舊 state 覆蓋期間發生的其他更新。
+      reduceInvestigationState: (observation, effects, options) => {
         setInvestigationState((currentState) =>
           reduceInvestigationStateValue(
-            baseState ?? currentState,
+            options?.visitSceneId
+              ? addVisitedScene(currentState, options.visitSceneId)
+              : currentState,
             observation,
             effects,
           ),

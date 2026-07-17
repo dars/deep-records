@@ -3,12 +3,13 @@ id: 002_friend_apartment
 type: scene
 title: 朋友的租屋處
 discovered: false
-connects_to: [001_apartment_entrance, 003_friend_apartment_livingroom]
+connects_to: [001_apartment_entrance, 003_friend_apartment_livingroom, 007_landlord_apartment]
 items_available: []
 exit_condition: "阿陽登場前可循原路離開；阿陽登場後進入人為封鎖分支"
 trigger_condition: 玩家抵達四樓朋友租屋處的門外
 music_mood: tense
 sanity_cost: 0
+references: [character_lin_xian_hong, character_landlord, item_friend_apartment_spare_key]
 ---
 
 ## 感官描述(給玩家的初次印象)

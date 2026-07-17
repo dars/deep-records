@@ -9,6 +9,7 @@ exit_condition: "阿陽登場前可循原路退回四樓門口；阿陽登場後
 trigger_condition: 玩家打開朋友住處的木門並進入玄關、走入客廳
 music_mood: tense
 sanity_cost: 0
+references: [character_lin_xian_hong, character_landlord, item_hidden_memory_card, item_star_spawn_wooden_idol]
 ---
 
 ## 感官描述（玩家進入客廳時）

@@ -1,3 +1,10 @@
+---
+id: keeper_rules
+type: keeper_reference
+title: Keeper 回合規則補充
+player_visible: false
+---
+
 ## 回合輸出規則
 
 ### actions

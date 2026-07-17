@@ -12,6 +12,7 @@ import Discovery from 'react-iconly/dist/Icons/Discovery'
 import Login from 'react-iconly/dist/Icons/Login'
 import PaperPlus from 'react-iconly/dist/Icons/PaperPlus'
 import Search from 'react-iconly/dist/Icons/Search'
+import type { TurnHistoryEntry } from '../../../shared/keeper'
 import {
   addVisitedScene,
   useInvestigationState,
@@ -21,6 +22,7 @@ import {
   type KeeperCheck,
   type KeeperCheckResult,
 } from './keeperClient'
+import { clearSavedGame, saveGame, type SavedGame } from './saveGame'
 
 const prologueImageUrl = new URL(
   '../../../scenarios/000_prologue.webp',
@@ -110,16 +112,6 @@ const revealableItemIds = new Set([
   'item_star_spawn_wooden_idol',
 ])
 
-const endingTitles: Record<string, string> = {
-  ending_buried_together: '壞結局：兩具無名屍體',
-  ending_great_witness: '成功結局：偉大的見證者',
-  ending_ordinary_departure: '平庸的結局',
-  ending_surrendered_evidence: '普通結局：被否定的真相',
-  ending_suppressed_truth: '信念結局：被清空的四樓',
-  ending_truth_in_hand: '開放結局：真相仍在手中',
-  ending_uneasy_departure: '普通結局：揮之不去的不安',
-}
-
 function getSceneImageUrl(sceneId: string) {
   const exactImageUrl = sceneImageUrls[sceneId]
 
@@ -165,69 +157,6 @@ function resolveRequestSceneId(
   }
 
   return investigationState.currentSceneId
-}
-
-function inferEnding(
-  currentSceneId: string,
-  playerAction: string,
-  investigationState: InvestigationState,
-  selectedAction?: ActionOption,
-) {
-  const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
-  const isLeaving =
-    /(?:轉身離開|轉身回家|直接回家|回家|離開公寓|離開這裡|不進去|不進公寓|放棄調查|取消調查|離開現場)/.test(
-      actionText,
-    )
-
-  if (!isLeaving) {
-    return undefined
-  }
-
-  if (currentSceneId === '001_apartment_entrance') {
-    return {
-      id: 'ending_ordinary_departure',
-      title: endingTitles.ending_ordinary_departure,
-    }
-  }
-
-  if (
-    investigationState.inventory.includes('item_hidden_memory_card') &&
-    /(?:報警|警方|警察|警局|交給警方|交出)/.test(actionText)
-  ) {
-    const endingId =
-      investigationState.belief.stage === 'operational' ||
-      investigationState.belief.stage === 'convinced'
-        ? 'ending_suppressed_truth'
-        : 'ending_surrendered_evidence'
-
-    return {
-      id: endingId,
-      title: endingTitles[endingId],
-    }
-  }
-
-  if (investigationState.inventory.includes('item_hidden_memory_card')) {
-    return {
-      id: 'ending_truth_in_hand',
-      title: endingTitles.ending_truth_in_hand,
-    }
-  }
-
-  if (
-    currentSceneId === '002_friend_apartment' ||
-    currentSceneId === '003_friend_apartment_livingroom' ||
-    currentSceneId === '003_friend_bedroom' ||
-    currentSceneId === '004_friend_kitchen' ||
-    currentSceneId === '005_friend_bathroom' ||
-    currentSceneId === '006_friend_balcony'
-  ) {
-    return {
-      id: 'ending_uneasy_departure',
-      title: endingTitles.ending_uneasy_departure,
-    }
-  }
-
-  return undefined
 }
 
 function renderActionIcon(option: ActionOption) {
@@ -394,20 +323,35 @@ const metaInputNoticeText =
 type InvestigationSceneProps = {
   onItemReveal: (itemId: string) => void
   onRestart: () => void
+  resume?: SavedGame | null
 }
 
-export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSceneProps) {
-  const hasRequestedInitialScene = useRef(false)
+export function InvestigationScene({
+  onItemReveal,
+  onRestart,
+  resume,
+}: InvestigationSceneProps) {
+  // 從存檔續玩時不需要重新請求開場敘事。
+  const hasRequestedInitialScene = useRef(Boolean(resume))
   const raindropIdRef = useRef(0)
   const sceneScrollRef = useRef<HTMLDivElement>(null)
   const {
     investigationState,
     reduceInvestigationState,
   } = useInvestigationState()
-  const [sceneStage, setSceneStage] = useState<SceneStage>('prologue')
-  const [storyParagraphs, setStoryParagraphs] = useState<string[]>([])
-  const [actionOptions, setActionOptions] = useState<ActionOption[]>([])
-  const [checks, setChecks] = useState<KeeperCheck[]>([])
+  const [sceneStage, setSceneStage] = useState<SceneStage>(
+    resume?.ui.sceneStage ?? 'prologue',
+  )
+  const [storyParagraphs, setStoryParagraphs] = useState<string[]>(
+    resume?.ui.storyParagraphs ?? [],
+  )
+  const [actionOptions, setActionOptions] = useState<ActionOption[]>(
+    resume?.ui.actionOptions ?? [],
+  )
+  const [checks, setChecks] = useState<KeeperCheck[]>(resume?.ui.checks ?? [])
+  const [turnHistory, setTurnHistory] = useState<TurnHistoryEntry[]>(
+    resume?.history ?? [],
+  )
   const [rollResults, setRollResults] = useState<RollResult[]>([])
   const [rollingDisplayRoll, setRollingDisplayRoll] = useState(100)
   const [screenRaindrops, setScreenRaindrops] = useState<ScreenRaindrop[]>([])
@@ -450,34 +394,19 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
     targetSceneStage: SceneStage,
     selectedAction?: ActionOption,
     checkResults?: KeeperCheckResult[],
+    historyLabel?: string,
   ) => {
     const sceneId = resolveRequestSceneId(targetSceneStage, investigationState)
     const requestState = addVisitedScene(investigationState, sceneId)
     const response = await requestKeeperTurn(playerAction, {
       checkResults,
+      history: turnHistory,
       investigationState: requestState,
       sceneId,
       selectedAction,
     })
-    const inferredEnding = inferEnding(
-      sceneId,
-      playerAction,
-      requestState,
-      selectedAction,
-    )
-    const responseEffects =
-      targetSceneStage === 'prologue'
-        ? {
-            ...response.effects,
-            endingId: undefined,
-            endingTitle: undefined,
-            nextSceneId: undefined,
-          }
-        : {
-            ...response.effects,
-            endingId: inferredEnding?.id ?? response.effects?.endingId,
-            endingTitle: inferredEnding?.title ?? response.effects?.endingTitle,
-          }
+    // 結局判定與楔子限制已由 worker 統一處理。
+    const responseEffects = response.effects ?? {}
 
     const alreadyRevealedItemIds = new Set([
       ...requestState.inventory,
@@ -494,21 +423,25 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
       onItemReveal(newlyAddedItem)
     }
 
-    reduceInvestigationState(
-      response.observation,
-      responseEffects,
-      addVisitedScene(investigationState, sceneId),
-    )
+    reduceInvestigationState(response.observation, responseEffects, {
+      visitSceneId: sceneId,
+    })
     setActionOptions(responseEffects.endingId ? [] : response.actions)
     setChecks(responseEffects.endingId ? [] : response.checks)
     setRollResults([])
     setRollingDisplayRoll(100)
     setIsRollingDice(false)
+    setTurnHistory((currentHistory) =>
+      [
+        ...currentHistory,
+        {
+          narration: response.narration,
+          playerAction: historyLabel ?? playerAction,
+        },
+      ].slice(-10),
+    )
 
-    return {
-      ...response,
-      effects: responseEffects,
-    }
+    return response
   }
 
   const requestInitialScene = async () => {
@@ -533,7 +466,13 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
     setStoryParagraphs([])
 
     try {
-      const response = await applyKeeperResponse(prologueStartAction, 'prologue')
+      const response = await applyKeeperResponse(
+        prologueStartAction,
+        'prologue',
+        undefined,
+        undefined,
+        '（楔子開場）',
+      )
       setStoryParagraphs(response.narration)
       setActionOptions([
         {
@@ -575,6 +514,9 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
       const response = await applyKeeperResponse(
         apartmentEntranceStartAction,
         'apartmentEntrance',
+        undefined,
+        undefined,
+        '（抵達老公寓入口）',
       )
       setStoryParagraphs(response.narration)
     } catch (error) {
@@ -604,6 +546,34 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
     hasRequestedInitialScene.current = true
     void requestInitialScene()
   })
+
+  // 每回合結束後自動存檔；抵達結局後清除（結局畫面重新開始即是新局）。
+  useEffect(() => {
+    if (investigationState.ending) {
+      clearSavedGame()
+      return
+    }
+
+    if (isKeeperThinking || keeperError || storyParagraphs.length === 0) {
+      return
+    }
+
+    saveGame({
+      history: turnHistory,
+      investigationState,
+      investigator: investigationState.investigator,
+      ui: { actionOptions, checks, sceneStage, storyParagraphs },
+    })
+  }, [
+    actionOptions,
+    checks,
+    investigationState,
+    isKeeperThinking,
+    keeperError,
+    sceneStage,
+    storyParagraphs,
+    turnHistory,
+  ])
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -702,6 +672,7 @@ export function InvestigationScene({ onItemReveal, onRestart }: InvestigationSce
         sceneStage,
         options?.selectedAction,
         options?.checkResults,
+        displayText,
       )
 
       setStoryParagraphs(
