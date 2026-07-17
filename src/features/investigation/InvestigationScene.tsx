@@ -111,12 +111,14 @@ const revealableItemIds = new Set([
   'item_star_spawn_wooden_idol',
 ])
 
-// d10 骰子的正視圖：中央鳶形面＋左右上下側面，各面獨立受光。
+// d20 骰子的正視圖：正二十面體面朝觀者的真實投影——
+// 中央正三角形＋環繞的 9 個側面（共 10 個可見面），各面依受光方向分層。
 // 以 useId 產生漸層 id，避免頁面上多顆骰子的 <defs> 衝突。
 function DieShape() {
   const gradientId = useId().replace(/[^a-zA-Z0-9]/g, '')
   const face = `face-${gradientId}`
-  const side = `side-${gradientId}`
+  const light = `light-${gradientId}`
+  const mid = `mid-${gradientId}`
   const dark = `dark-${gradientId}`
   const sheen = `sheen-${gradientId}`
   const well = `well-${gradientId}`
@@ -124,54 +126,64 @@ function DieShape() {
   return (
     <svg className="die-svg" viewBox="0 0 100 104" aria-hidden="true">
       <defs>
-        <linearGradient id={face} x1="0" y1="0" x2="0.7" y2="1">
-          <stop offset="0" stopColor="#356354" />
-          <stop offset="0.45" stopColor="#16352c" />
-          <stop offset="1" stopColor="#0a1f1a" />
+        <linearGradient id={face} x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor="#39685a" />
+          <stop offset="0.5" stopColor="#1a3b31" />
+          <stop offset="1" stopColor="#0c231d" />
         </linearGradient>
-        <linearGradient id={side} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#1d4438" />
-          <stop offset="1" stopColor="#0a1d18" />
+        <linearGradient id={light} x1="0" y1="0" x2="0.8" y2="1">
+          <stop offset="0" stopColor="#2c584a" />
+          <stop offset="1" stopColor="#123028" />
+        </linearGradient>
+        <linearGradient id={mid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#1c4237" />
+          <stop offset="1" stopColor="#0b201b" />
         </linearGradient>
         <linearGradient id={dark} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#0e241e" />
+          <stop offset="0" stopColor="#102b23" />
           <stop offset="1" stopColor="#050f0d" />
         </linearGradient>
         <radialGradient id={well} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="rgba(4, 14, 12, 0.62)" />
-          <stop offset="0.62" stopColor="rgba(4, 14, 12, 0.34)" />
+          <stop offset="0" stopColor="rgba(4, 14, 12, 0.6)" />
+          <stop offset="0.62" stopColor="rgba(4, 14, 12, 0.32)" />
           <stop offset="1" stopColor="rgba(4, 14, 12, 0)" />
         </radialGradient>
-        <radialGradient id={sheen} cx="0.4" cy="0.16" r="0.62">
-          <stop offset="0" stopColor="rgba(216, 236, 224, 0.34)" />
-          <stop offset="0.45" stopColor="rgba(216, 236, 224, 0.08)" />
+        <radialGradient id={sheen} cx="0.42" cy="0.14" r="0.66">
+          <stop offset="0" stopColor="rgba(216, 236, 224, 0.32)" />
+          <stop offset="0.45" stopColor="rgba(216, 236, 224, 0.07)" />
           <stop offset="1" stopColor="rgba(216, 236, 224, 0)" />
         </radialGradient>
       </defs>
-      {/* 左右側面（後層） */}
-      <polygon points="50,3 8,40 30,54" fill={`url(#${side})`} />
-      <polygon points="8,40 30,54 24,88" fill={`url(#${side})`} />
-      <polygon points="30,54 24,88 50,101" fill={`url(#${dark})`} />
-      <polygon points="50,3 92,40 70,54" fill={`url(#${dark})`} />
-      <polygon points="92,40 70,54 76,88" fill={`url(#${dark})`} />
-      <polygon points="70,54 76,88 50,101" fill={`url(#${dark})`} />
-      {/* 中央鳶形面 */}
-      <polygon points="50,3 70,54 50,101 30,54" fill={`url(#${face})`} />
-      {/* 數字銘刻底：壓暗中央，讓數字脫離稜線 */}
-      <ellipse cx="50" cy="54" rx="19" ry="25" fill={`url(#${well})`} />
+      {/* 環繞側面（頂部受光 → 右下背光） */}
+      <polygon points="50,24 8.4,29 50,5" fill={`url(#${light})`} />
+      <polygon points="50,24 50,5 91.6,29" fill={`url(#${mid})`} />
+      <polygon points="24.9,67.5 8.4,29 50,24" fill={`url(#${light})`} />
+      <polygon points="50,24 91.6,29 75.1,67.5" fill={`url(#${dark})`} />
+      <polygon points="24.9,67.5 8.4,77 8.4,29" fill={`url(#${mid})`} />
+      <polygon points="75.1,67.5 91.6,29 91.6,77" fill={`url(#${dark})`} />
+      <polygon points="24.9,67.5 50,101 8.4,77" fill={`url(#${dark})`} />
+      <polygon points="75.1,67.5 91.6,77 50,101" fill={`url(#${dark})`} />
+      <polygon points="24.9,67.5 75.1,67.5 50,101" fill={`url(#${mid})`} />
+      {/* 中央正三角形面 */}
+      <polygon points="50,24 75.1,67.5 24.9,67.5" fill={`url(#${face})`} />
+      {/* 數字銘刻底：柔和壓暗中央 */}
+      <ellipse cx="50" cy="55" rx="20" ry="19" fill={`url(#${well})`} />
       {/* 稜線 */}
       <g
         fill="none"
-        stroke="rgba(163, 204, 186, 0.45)"
+        stroke="rgba(163, 204, 186, 0.42)"
         strokeWidth="1"
         strokeLinejoin="round"
       >
-        <polygon points="50,3 70,54 50,101 30,54" />
-        <path d="M8,40 L30,54 M92,40 L70,54 M24,88 L30,54 M76,88 L70,54" strokeOpacity="0.55" />
+        <polygon points="50,24 75.1,67.5 24.9,67.5" />
+        <path
+          d="M50,24 L50,5 M50,24 L8.4,29 M50,24 L91.6,29 M24.9,67.5 L8.4,29 M24.9,67.5 L8.4,77 M24.9,67.5 L50,101 M75.1,67.5 L91.6,29 M75.1,67.5 L91.6,77 M75.1,67.5 L50,101"
+          strokeOpacity="0.55"
+        />
       </g>
       {/* 輪廓與頂部光澤 */}
       <polygon
-        points="50,3 92,40 76,88 50,101 24,88 8,40"
+        points="50,5 91.6,29 91.6,77 50,101 8.4,77 8.4,29"
         fill={`url(#${sheen})`}
         stroke="rgba(190, 222, 204, 0.6)"
         strokeWidth="1.4"
