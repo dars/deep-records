@@ -72,7 +72,7 @@ export type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-30'
+const workerVersion = 'keeper-session-2026-07-18-31'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -113,7 +113,7 @@ export default {
           ok: true,
           provider: env.KEEPER_PROVIDER === 'ollama' ? 'ollama' : 'gemini',
           ...(env.KEEPER_PROVIDER === 'ollama'
-            ? { ollamaModel: env.OLLAMA_MODEL ?? 'gemma4:12b' }
+            ? { ollamaModel: env.OLLAMA_MODEL ?? 'qwen3:8b' }
             : {}),
           version: workerVersion,
         },

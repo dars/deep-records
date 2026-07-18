@@ -108,7 +108,7 @@ export async function callOllamaKeeper(
   env: OllamaEnv,
   prompt: string,
 ): Promise<OllamaKeeperResult> {
-  const model = env.OLLAMA_MODEL ?? 'gemma4:12b'
+  const model = env.OLLAMA_MODEL ?? 'qwen3:8b'
   const modelUsed = `ollama/${model}`
 
   if (!env.OLLAMA_URL) {

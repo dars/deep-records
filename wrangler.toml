@@ -57,5 +57,5 @@ GEMINI_CLIMAX_MODEL = "gemini-3.1-pro-preview"
 # tunnel 有 Cloudflare Access 保護時，另以 secret 設定 CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET。
 KEEPER_PROVIDER = "gemini"
 OLLAMA_URL = "https://agent.code4soul.dev/api/chat"
-OLLAMA_MODEL = "gemma4:12b"
+OLLAMA_MODEL = "qwen3:8b"
 OLLAMA_TIMEOUT_MS = "90000"
