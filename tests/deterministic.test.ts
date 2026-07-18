@@ -306,3 +306,46 @@ describe('尋找讀卡設備不再死循環', () => {
     expect(response?.actions.map((a) => a.id)).toContain('find-compatible-card-reader')
   })
 })
+
+describe('阿陽在場時的記憶卡互動', () => {
+  const officerPresentState = {
+    flags: {
+      officer_a_yang_arrived: true,
+      officer_door_opened: true,
+    },
+    inventory: ['item_hidden_memory_card', '智慧型手機'],
+  }
+
+  it('遞卡給阿陽：腳本讓位給模型（依角色檔演出）', () => {
+    expect(
+      handleDeterministicInvestigationAction(
+        '003_friend_apartment_livingroom',
+        '將記憶卡遞給他，要求他用警用設備協助讀取，看看他是否會露出馬腳',
+        undefined,
+        officerPresentState,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('與阿陽討論記憶卡內容：同樣交給模型', () => {
+    expect(
+      handleDeterministicInvestigationAction(
+        '003_friend_apartment_livingroom',
+        '拿著記憶卡的照片問他對房東不老有什麼看法，跟他討論',
+        undefined,
+        officerPresentState,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('阿陽在場但玩家自己讀卡：腳本流程照常', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_apartment_livingroom',
+      '自己接上讀卡機，讀取記憶卡的內容',
+      undefined,
+      officerPresentState,
+    )
+
+    expect(response).toBeDefined()
+  })
+})

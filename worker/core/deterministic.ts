@@ -7,7 +7,7 @@ import type {
 } from '../../shared/keeper'
 import { isNegatedMovement, transitionRules } from '../config/transitions'
 import { occupationAliases } from '../generated/content'
-import { hasOfficerArrived } from './officer'
+import { hasOfficerArrived, isOfficerPresent } from './officer'
 import { getCurrentSanity, resolveSanityCheck } from './sanity'
 
 export function handleDeterministicSceneTransition(
@@ -157,6 +157,17 @@ export function handleDeterministicInvestigationAction(
     )
 
   if (!isReadingMemoryCard) {
+    return undefined
+  }
+
+  // 阿陽正面接觸後，涉及他的記憶卡動作（遞卡、要求協助、與他討論內容）
+  // 屬於社交互動，交給模型依 officer_a_yang.md 的規則演出，腳本不得劫持。
+  if (
+    isOfficerPresent(state) &&
+    /阿陽|警員|警察|員警|警用|遞給|交給|給他|讓他|他看|他讀|一起看|問他|討論/.test(
+      actionText,
+    )
+  ) {
     return undefined
   }
 
