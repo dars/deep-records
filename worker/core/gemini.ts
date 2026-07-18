@@ -238,9 +238,12 @@ async function generateGeminiText(
 ): Promise<{ modelUsed: string; text: string }> {
   let lastError: Error | undefined
   let attempts = 0
+  let locationRetries = 0
   let activeModel = model
-  // 一般錯誤最多重試一次；thinkingConfig 欄位不相容的降級重試另計（最多兩次）。
-  const maxAttempts = 2 + 2
+  // 一般錯誤最多重試一次；thinkingConfig 欄位不相容的降級重試另計（最多兩次）；
+  // 出口地區被拒的重試另計（最多四次，每次換出口 IP 的機會）。
+  const maxLocationRetries = 4
+  const maxAttempts = 2 + 2 + maxLocationRetries
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempts >= 2) {
@@ -281,10 +284,24 @@ async function generateGeminiText(
         // 不中斷遊戲回合。
         if (
           activeModel !== geminiModel &&
-          (response.status === 404 || /not found|is not supported/i.test(errorBody))
+          (response.status === 404 ||
+            /not found|model.*is not supported/i.test(errorBody))
         ) {
           console.error('keeper_climax_model_unavailable', activeModel)
           activeModel = geminiModel
+          continue
+        }
+
+        // Cloudflare 出口 IP 偶爾落在 Gemini 不支援的地區（IP 池輪替，
+        // 時好時壞）：這類 400 視為可重試，換一次出口通常就過。
+        if (
+          response.status === 400 &&
+          /location is not supported/i.test(errorBody) &&
+          locationRetries < maxLocationRetries
+        ) {
+          locationRetries += 1
+          console.error('keeper_gemini_location_retry', locationRetries)
+          await new Promise((resolve) => setTimeout(resolve, 250))
           continue
         }
 
