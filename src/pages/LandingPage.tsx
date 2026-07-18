@@ -1,3 +1,5 @@
+import { AddToHomeScreenHint } from '../features/pwa/AddToHomeScreenHint'
+
 type LandingPageProps = {
   onEnter: () => void
 }
@@ -28,6 +30,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
         <button className="landing-enter-button" type="button" onClick={onEnter}>
           我已了解，翻開紀錄
         </button>
+
+        <AddToHomeScreenHint />
       </section>
     </main>
   )

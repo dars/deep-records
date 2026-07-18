@@ -2782,3 +2782,50 @@
 .rating-half.left { left: 0; }
 .rating-half.right { right: 0; }
 .ending-rating-value { margin: 0.4rem 0 0; font-size: 0.85rem; color: rgba(222, 197, 132, 0.8); letter-spacing: 0.1em; }
+
+/* 加入主畫面提示（Landing）。 */
+.a2hs-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(148, 190, 170, 0.18);
+  border-radius: 10px;
+  background: rgba(20, 38, 33, 0.35);
+  text-align: left;
+}
+.a2hs-text { flex: 1; }
+.a2hs-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  color: rgba(163, 196, 178, 0.85);
+}
+.a2hs-text p:not(.a2hs-title) {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: rgba(199, 210, 197, 0.72);
+}
+.a2hs-glyph { color: rgba(163, 196, 178, 0.95); }
+.a2hs-actions { display: flex; align-items: center; gap: 6px; }
+.a2hs-install {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 190, 170, 0.35);
+  background: rgba(85, 178, 143, 0.16);
+  color: rgba(214, 226, 214, 0.92);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.a2hs-dismiss {
+  border: 0;
+  background: transparent;
+  color: rgba(163, 184, 170, 0.5);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+}
