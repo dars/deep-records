@@ -774,3 +774,41 @@ describe('瘋狂濾鏡：腳本節點的失序變體', () => {
     expect(result?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
   })
 })
+
+import { applyHpZeroEnding } from '../worker/keeper'
+
+describe('HP 歸零的無名屍結局', () => {
+  const baseResponse = {
+    actions: [{ id: 'a', label: '掙扎' }],
+    checks: [],
+    effects: { hitPointDelta: -4 },
+    narration: ['阿陽的手肘壓上你的後頸。'],
+  }
+
+  it('傷害使 HP 歸零：強制 ending_buried_together', () => {
+    const result = applyHpZeroEnding(baseResponse, {
+      hitPoints: { current: 3, max: 11 },
+      sanity: { current: 50, lostToday: 1, starting: 55 },
+    })
+
+    expect(result.effects?.endingId).toBe('ending_buried_together')
+    expect(result.narration.length).toBeGreaterThan(1)
+  })
+
+  it('HP 仍為正：不觸發', () => {
+    const result = applyHpZeroEnding(baseResponse, {
+      hitPoints: { current: 8, max: 11 },
+    })
+
+    expect(result.effects?.endingId).toBeUndefined()
+  })
+
+  it('失序玩家的死亡敘事走瘋狂濾鏡', () => {
+    const result = applyHpZeroEnding(baseResponse, {
+      hitPoints: { current: 2, max: 11 },
+      sanity: { current: 40, lostToday: 9, starting: 55 },
+    })
+
+    expect(result.narration.join('')).toContain('水聲')
+  })
+})

@@ -29,7 +29,7 @@ import {
 } from './core/officer'
 import { buildPrompt } from './core/prompt'
 import { processRitualPacing } from './core/ritual'
-import { resolveSanityEffects } from './core/sanity'
+import { isWireStateDisordered, resolveSanityEffects } from './core/sanity'
 import { handleTtsRequest } from './core/tts'
 import { sanitizeKeeperRequest } from './core/sanitize'
 import {
@@ -59,7 +59,7 @@ export type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-28'
+const workerVersion = 'keeper-session-2026-07-18-29'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -389,6 +389,8 @@ export async function executeKeeperTurn(
     belief: beliefUpdate,
   }
 
+  response = applyHpZeroEnding(response, body.state)
+
   const validated = validateKeeperResponse(response, sceneId, body.state)
 
   logTurnEvent(env, ctx, {
@@ -461,6 +463,45 @@ async function runModelTurn(
       body.state,
     ),
     source,
+  }
+}
+
+// HP 歸零＝角色死亡：強制走「兩具無名屍體」結局（ending_buried_together 的
+// 第二條進入路徑）。實務上只有與阿陽或信徒的肢體衝突會累積到這裡。
+export function applyHpZeroEnding(
+  response: KeeperResponse,
+  state?: KeeperWireState,
+): KeeperResponse {
+  const currentHp = state?.hitPoints?.current
+
+  if (typeof currentHp !== 'number') {
+    return response
+  }
+
+  const delta = Math.max(-10, Math.min(0, response.effects?.hitPointDelta ?? 0))
+
+  if (currentHp + delta > 0) {
+    return response
+  }
+
+  const disordered = isWireStateDisordered(state)
+  const deathNarration = disordered
+    ? [
+        '疼痛忽然停了。不是好轉——是你跟身體之間的線被剪斷了。你從很高的地方看著自己倒下去，看著那個穿制服的形狀低頭俯視，看著房間的光像退潮一樣從四周撤走。',
+        '最後留在你耳裡的是水聲。很深、很靜的水。然後連水聲也沒有了。',
+      ]
+    : [
+        '你的膝蓋先失去力氣，然後是視野——房間傾斜、變窄、暗下來。你聽見有人在很遠的地方說了一句什麼，語氣平穩，像在報告一件例行公事。',
+        '意識沉下去之前，你最後想到的是阿宏。你們最後會在同一個地方被找到——或者，永遠不會被找到。',
+      ]
+
+  return {
+    ...response,
+    effects: {
+      ...response.effects,
+      endingId: 'ending_buried_together',
+    },
+    narration: [...response.narration, ...deathNarration],
   }
 }
 
