@@ -454,6 +454,7 @@
   background-repeat: no-repeat;
   background-size: cover;
   opacity: 0.68;
+  animation: sceneHeroFadeIn 900ms ease-out;
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -469,6 +470,16 @@
     black 52%,
     transparent 100%
   );
+}
+
+@keyframes sceneHeroFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.68;
+  }
 }
 
 .scene-hero-image::after {
@@ -2418,7 +2429,8 @@
   .free-action button,
   .result-die,
   .character-panel,
-  .character-backdrop {
+  .character-backdrop,
+  .scene-hero-image {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
   }

@@ -1101,6 +1101,7 @@ export function InvestigationScene({
   return (
     <section className="scene" aria-label="目前場景">
       <div
+        key={sceneImageUrl}
         className="scene-hero-image"
         style={{ backgroundImage: `url(${sceneImageUrl})` }}
         aria-hidden="true"
