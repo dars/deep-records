@@ -16,6 +16,7 @@ import VolumeOff from 'react-iconly/dist/Icons/VolumeOff'
 import Search from 'react-iconly/dist/Icons/Search'
 import type { TurnHistoryEntry } from '../../../shared/keeper'
 import { audioManager, resolveBgmMood } from '../audio/audioManager'
+import { endingIds } from '../../generated/registry'
 import {
   addVisitedScene,
   useInvestigationState,
@@ -123,16 +124,8 @@ const keeperThinkingMessages = [
   '某一頁被長久地停留著……',
 ]
 
-// 結局圖鑑的完整清單（順序即圖鑑順序；標題在解鎖時記錄）。
-const allEndingIds = [
-  'ending_ordinary_departure',
-  'ending_uneasy_departure',
-  'ending_surrendered_evidence',
-  'ending_suppressed_truth',
-  'ending_truth_in_hand',
-  'ending_buried_together',
-  'ending_great_witness',
-]
+// 結局圖鑑的完整清單：由內容層 codegen 生成（順序即結局 md 檔名排序）。
+const allEndingIds = [...endingIds]
 
 const revealableItemIds = new Set([
   'item_friend_apartment_spare_key',
@@ -392,6 +385,7 @@ export function InvestigationScene({
   const {
     investigationState,
     reduceInvestigationState,
+    setInvestigationState,
   } = useInvestigationState()
   const [sceneStage, setSceneStage] = useState<SceneStage>(
     resume?.ui.sceneStage ?? 'prologue',
@@ -629,10 +623,22 @@ export function InvestigationScene({
       audioManager.playSfx('knock')
     }
 
-    reduceInvestigationState(response.observation, responseEffects, {
-      beliefUpdate: response.belief,
-      visitSceneId: sceneId,
-    })
+    // 權威狀態：Durable Object 路徑回傳完整快照，直接採用（server 的 reduce
+    // 與本地實作是同一份 shared/state.ts）；無快照時退回本地 reduce。
+    const serverState = response.state
+
+    if (serverState) {
+      setInvestigationState((current) => ({
+        ...current,
+        ...serverState,
+        ending: serverState.ending,
+      }))
+    } else {
+      reduceInvestigationState(response.observation, responseEffects, {
+        beliefUpdate: response.belief,
+        visitSceneId: sceneId,
+      })
+    }
     setActionOptions(responseEffects.endingId ? [] : response.actions)
     setChecks(responseEffects.endingId ? [] : response.checks)
     setRollResults([])

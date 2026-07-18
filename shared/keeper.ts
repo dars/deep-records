@@ -113,6 +113,8 @@ export type BeliefUpdate = {
 export type KeeperResponse = {
   actions: KeeperAction[]
   belief?: BeliefUpdate
+  // Durable Object 路徑回傳的權威狀態快照（無狀態備援路徑沒有此欄位）。
+  state?: import('./state').CanonicalGameState
   checks: KeeperCheck[]
   effects?: InvestigationEffects
   narration: string[]

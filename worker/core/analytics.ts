@@ -39,7 +39,7 @@ function deriveActionKind(body: KeeperRequestBody): string {
 
 export function logTurnEvent(
   env: AnalyticsEnv,
-  ctx: ExecutionContext,
+  ctx: { waitUntil(promise: Promise<unknown>): void },
   input: {
     beliefStage: string
     body: KeeperRequestBody

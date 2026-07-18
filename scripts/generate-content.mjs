@@ -180,6 +180,19 @@ export const factions: Record<string, DocDefinition> = ${record(factions, docRec
 
 export const keeperReferences: Record<string, DocDefinition> = ${record(keeperReferences, docRecord)}
 
+// ── id 註冊表：內容層是唯一真相源，這裡的聯集型別讓打錯字在建置期就失敗 ──
+export const sceneIds = ${JSON.stringify(scenes.map((entry) => entry.id))} as const
+export type SceneId = (typeof sceneIds)[number]
+
+export const itemIds = ${JSON.stringify(items.map((entry) => entry.id))} as const
+export type ItemId = (typeof itemIds)[number]
+
+export const endingIds = ${JSON.stringify(endings.map((entry) => entry.id))} as const
+export type EndingId = (typeof endingIds)[number]
+
+export const occupationIds = ${JSON.stringify(occupations.map((entry) => entry.id))} as const
+export type OccupationId = (typeof occupationIds)[number]
+
 export const occupationAliases: Record<string, string> = {
 ${occupations
   .flatMap((entry) => [
@@ -206,6 +219,19 @@ ${scenes
 
 mkdirSync(dirname(moodsOutputFile), { recursive: true })
 writeFileSync(moodsOutputFile, moodsOutput)
+
+// 前端用的 id 註冊表（結局圖鑑順序 = 檔名排序）。
+const registryOutput = `// 本檔案由 scripts/generate-content.mjs 產生，請勿手動編輯。
+export const endingIds = ${JSON.stringify(endings.map((entry) => entry.id))} as const
+export type EndingId = (typeof endingIds)[number]
+
+export const sceneIds = ${JSON.stringify(scenes.map((entry) => entry.id))} as const
+export type SceneId = (typeof sceneIds)[number]
+`
+
+const registryOutputFile = join(projectRoot, 'src/generated/registry.ts')
+mkdirSync(dirname(registryOutputFile), { recursive: true })
+writeFileSync(registryOutputFile, registryOutput)
 console.log(
   `Generated ${relative(projectRoot, outputFile)}: ${scenes.length} scenes, ${items.length} items, ${endings.length} endings, ${occupations.length} occupations, ${characters.length} characters, ${factions.length} factions, ${keeperReferences.length} references`,
 )

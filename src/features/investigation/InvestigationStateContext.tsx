@@ -8,6 +8,7 @@ import {
   type SetStateAction,
 } from 'react'
 import type { BeliefUpdate } from '../../../shared/keeper'
+import { applyTurnEffects } from '../../../shared/state'
 import {
   createInitialInvestigationState,
   initialInvestigationState,
@@ -34,84 +35,17 @@ function addUnique<T>(items: T[], nextItems: T[] = []) {
   return Array.from(new Set([...items, ...nextItems]))
 }
 
-// 信念階段由 worker 以累積制計算（worker/core/belief.ts），
-// 前端只套用 server 回傳的 beliefUpdate 並在本地保存 evidence 敘述。
-// 沒有 beliefUpdate 時（理論上不會發生）保守維持現狀，不自行推進階段。
-function updateBelief(
-  state: InvestigationState,
-  observation?: BeliefObservation,
-  beliefUpdate?: BeliefUpdate,
-) {
-  const belief = state.belief
-  const evidence = [...belief.evidence]
-
-  if (observation?.reason) {
-    evidence.push(observation.reason)
-  }
-
-  if (!beliefUpdate) {
-    return {
-      ...belief,
-      evidence: evidence.slice(-12),
-    }
-  }
-
-  return {
-    evidence: evidence.slice(-12),
-    signalLog: beliefUpdate.signalLog,
-    stage: beliefUpdate.stage,
-    testedMythRules: beliefUpdate.testedMythRules,
-    verifiedMythRules: beliefUpdate.verifiedMythRules,
-  }
-}
-
+// 權威 reduce 邏輯在 shared/state.ts（與 worker 端 Durable Object 共用同一實作）；
+// 這裡只是把 canonical 欄位套回含 investigator 的前端狀態。
 export function reduceInvestigationStateValue(
   state: InvestigationState,
   observation?: BeliefObservation,
   effects?: InvestigationEffects,
   beliefUpdate?: BeliefUpdate,
-) {
-  const nextSceneId = effects?.nextSceneId ?? state.currentSceneId
-  const sanityDelta = effects?.sanityDelta ?? 0
-  const hitPointDelta = effects?.hitPointDelta ?? 0
-  const currentHitPoints = state.hitPoints?.current ?? state.investigator.hitPoints
-  const maxHitPoints = state.hitPoints?.max ?? state.investigator.hitPoints
-  const nextCurrentSanity = Math.max(0, state.sanity.current + sanityDelta)
-  const nextCurrentHitPoints = Math.max(
-    0,
-    Math.min(maxHitPoints, currentHitPoints + hitPointDelta),
-  )
-
+): InvestigationState {
   return {
     ...state,
-    belief: updateBelief(state, observation, beliefUpdate),
-    currentSceneId: nextSceneId,
-    discoveredClues: addUnique(state.discoveredClues, effects?.discoverClues),
-    ending: effects?.endingId
-      ? {
-          id: effects.endingId,
-          title: effects.endingTitle ?? effects.endingId,
-        }
-      : state.ending,
-    flags: {
-      ...state.flags,
-      ...(effects?.setFlags ?? {}),
-    },
-    hitPoints: {
-      max: maxHitPoints,
-      current: nextCurrentHitPoints,
-    },
-    inventory: addUnique(
-      state.inventory.filter((item) => !effects?.removeInventory?.includes(item)),
-      effects?.addInventory,
-    ),
-    sanity: {
-      ...state.sanity,
-      current: nextCurrentSanity,
-      lostToday:
-        state.sanity.lostToday + (sanityDelta < 0 ? Math.abs(sanityDelta) : 0),
-    },
-    visitedScenes: addUnique(state.visitedScenes, [nextSceneId]),
+    ...applyTurnEffects(state, observation, effects, beliefUpdate),
   }
 }
 

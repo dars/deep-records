@@ -17,6 +17,14 @@ run_worker_first = ["/api/*", "/health", "/admin"]
 enabled = true
 
 # 每個來源 IP 每 60 秒最多 20 次 keeper 回合請求。
+[[durable_objects.bindings]]
+name = "KEEPER_SESSION"
+class_name = "KeeperSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["KeeperSession"]
+
 [[ratelimits]]
 name = "KEEPER_RATE_LIMITER"
 namespace_id = "1001"

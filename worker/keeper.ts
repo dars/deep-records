@@ -35,11 +35,13 @@ import {
 } from './core/validate'
 import { scenes } from './generated/content'
 
+export { KeeperSession } from './session'
+
 type RateLimiter = {
   limit: (options: { key: string }) => Promise<{ success: boolean }>
 }
 
-type Env = {
+export type Env = {
   ADMIN_KEY?: string
   ANALYTICS_DB?: D1Database
   ELEVENLABS_API_KEY?: string
@@ -48,10 +50,11 @@ type Env = {
   // 混合路由：五樓／強制高潮回合改用的高階模型；未設定時全程使用預設模型。
   GEMINI_CLIMAX_MODEL?: string
   KEEPER_RATE_LIMITER?: RateLimiter
+  KEEPER_SESSION?: DurableObjectNamespace
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-analytics-2026-07-18-14'
+const workerVersion = 'keeper-session-2026-07-18-16'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -166,6 +169,28 @@ export default {
     try {
       const body = sanitizeKeeperRequest(await request.json())
 
+      // 權威狀態路徑：每個 session 一個 Durable Object，狀態活在 server。
+      if (body.sessionId && env.KEEPER_SESSION) {
+        const stub = env.KEEPER_SESSION.get(
+          env.KEEPER_SESSION.idFromName(body.sessionId),
+        )
+        const doResponse = await stub.fetch('https://keeper-session/turn', {
+          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        })
+        const payload = await doResponse.text()
+
+        return new Response(payload, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            ...corsHeaders,
+          },
+          status: doResponse.status,
+        })
+      }
+
+      // 無 sessionId 的備援路徑：無狀態回合（信任 client 傳來的 state）。
       return await handleKeeperTurn(body, env, corsHeaders, ctx)
     } catch (error) {
       // 詳細錯誤只進 observability log，不回傳給 client。
@@ -183,25 +208,45 @@ export default {
   },
 }
 
+// Durable Object 與無狀態路徑共用的 waitUntil 介面。
+type CtxLike = {
+  waitUntil(promise: Promise<unknown>): void
+}
+
 async function handleKeeperTurn(
   body: KeeperRequestBody,
   env: Env,
   corsHeaders: Record<string, string>,
   ctx: ExecutionContext,
 ): Promise<Response> {
+  const turn = await executeKeeperTurn(body, env, ctx)
+
+  if ('error' in turn) {
+    return json(turn, 400, corsHeaders)
+  }
+
+  return json(turn.validated, 200, corsHeaders)
+}
+
+// 回合管線本體：清洗後的 body 進、驗證後的權威回應出。
+// 由無狀態路徑與 KeeperSession Durable Object 共用。
+export async function executeKeeperTurn(
+  body: KeeperRequestBody,
+  env: Env,
+  ctx: CtxLike,
+): Promise<
+  | { error: string; message: string }
+  | { sceneId: string; validated: KeeperResponse }
+> {
   const sceneId = body.sceneId ?? body.state?.currentSceneId ?? '001_apartment_entrance'
   const playerAction = body.playerAction ?? ''
   const scene = scenes[sceneId]
 
   if (!scene) {
-    return json(
-      {
-        error: 'unknown_scene',
-        message: `Unknown sceneId: ${sceneId}`,
-      },
-      400,
-      corsHeaders,
-    )
+    return {
+      error: 'unknown_scene',
+      message: `Unknown sceneId: ${sceneId}`,
+    }
   }
 
   // 阿陽登場後的門外流程：催促與強制進門會搶佔回合；
@@ -330,7 +375,7 @@ async function handleKeeperTurn(
     source: turnSource,
   })
 
-  return json(validated, 200, corsHeaders)
+  return { sceneId, validated }
 }
 
 async function runModelTurn(

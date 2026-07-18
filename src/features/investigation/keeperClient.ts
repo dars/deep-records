@@ -10,6 +10,7 @@ import {
   type KeeperResponse,
   type TurnHistoryEntry,
 } from '../../../shared/keeper'
+import { isCanonicalGameState } from '../../../shared/state'
 import type { ActionOption, InvestigationState } from '../../types/investigation'
 
 export type { KeeperCheck, KeeperCheckResult, KeeperResponse } from '../../../shared/keeper'
@@ -98,5 +99,6 @@ export async function requestKeeperTurn(
     effects: normalizeEffects(data.effects),
     narration: normalizeNarration(data.narration),
     observation: normalizeObservation(data.observation),
+    state: isCanonicalGameState(data.state) ? data.state : undefined,
   }
 }
