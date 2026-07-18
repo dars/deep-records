@@ -7,6 +7,7 @@ import VolumeUp from 'react-iconly/dist/Icons/VolumeUp'
 import { playerRecord, recordTabs, type RecordTab } from '../data/playerRecord'
 import { useInvestigationState } from '../features/investigation/InvestigationStateContext'
 import type { InvestigationState } from '../types/investigation'
+import { formatGameClock, gameClockStartMinutes } from '../../shared/state'
 
 export type ItemRevealRecord = {
   id: string
@@ -177,6 +178,9 @@ function buildInvestigationLogs(investigationState: InvestigationState) {
 
 export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
   const { investigationState } = useInvestigationState()
+  const clockLabel = formatGameClock(
+    investigationState.clockMinutes ?? gameClockStartMinutes,
+  )
   const { investigator } = investigationState
   const [isCharacterOpen, setIsCharacterOpen] = useState(false)
   const [isCharacterClosing, setIsCharacterClosing] = useState(false)
@@ -311,7 +315,7 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
           <div className="title-rule" aria-hidden="true">
             <span />
           </div>
-          <p className="scene-meta">7月15日　深夜 01:17　☁</p>
+          <p className="scene-meta">7月15日　{clockLabel}　☁</p>
         </header>
         {children({ showItemReveal })}
         {isMenuOpen && (

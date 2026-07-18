@@ -52,6 +52,11 @@ export function loadSavedGame(): SavedGame | null {
       return null
     }
 
+    // 舊存檔沒有遊戲時鐘：以回合數推估補值。
+    if (typeof parsed.investigationState.clockMinutes !== 'number') {
+      parsed.investigationState.clockMinutes = 77 + (parsed.turnCount ?? 0) * 4
+    }
+
     return parsed
   } catch {
     return null

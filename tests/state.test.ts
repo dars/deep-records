@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   applyTurnEffects,
   canonicalFromWireState,
+  formatGameClock,
+  gameClockStartMinutes,
+  gameClockStepMinutes,
   type CanonicalGameState,
 } from '../shared/state'
 
 function baseState(): CanonicalGameState {
   return {
+    clockMinutes: gameClockStartMinutes,
     belief: {
       evidence: [],
       signalLog: [],
@@ -112,5 +116,19 @@ describe('canonicalFromWireState', () => {
 
     expect(seeded.currentSceneId).toBe('000_prologue')
     expect(seeded.hitPoints).toEqual({ current: 11, max: 11 })
+  })
+})
+
+describe('遊戲時鐘', () => {
+  it('每回合前進固定分鐘數；播種預設 01:17', () => {
+    const next = applyTurnEffects(baseState(), undefined, {})
+    expect(next.clockMinutes).toBe(gameClockStartMinutes + gameClockStepMinutes)
+    expect(canonicalFromWireState(undefined).clockMinutes).toBe(gameClockStartMinutes)
+  })
+
+  it('時刻格式：深夜與凌晨', () => {
+    expect(formatGameClock(77)).toBe('深夜 01:17')
+    expect(formatGameClock(125)).toBe('深夜 02:05')
+    expect(formatGameClock(185)).toBe('凌晨 03:05')
   })
 })

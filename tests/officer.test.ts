@@ -886,3 +886,44 @@ describe('節奏割裂修正', () => {
     expect(attackOfficerPattern.test('冷靜地回答他的問題')).toBe(false)
   })
 })
+
+describe('時間觸發', () => {
+  it('時鐘達 02:05：例行登場（零里程碑也觸發）', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '站在窗邊看雨',
+      undefined,
+      { clockMinutes: 125, flags: {} },
+    )
+    expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
+
+    expect(
+      handleOfficerArrival(
+        '003_friend_apartment_livingroom',
+        '站在窗邊看雨',
+        undefined,
+        { clockMinutes: 121, flags: {} },
+        3,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('儀式死線 02:45：問話至少兩回合後強制召喚', () => {
+    const lateState = {
+      clockMinutes: 166,
+      flags: {
+        officer_a_yang_arrived: true,
+        officer_door_opened: true,
+        officer_stay_turn_1: true,
+        officer_stay_turn_2: true,
+      },
+    }
+    const result = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '繼續回答問題',
+      undefined,
+      lateState,
+    )
+    expect(result?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
+  })
+})

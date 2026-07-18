@@ -127,6 +127,7 @@ export type TurnHistoryEntry = {
 }
 
 export type KeeperWireState = {
+  clockMinutes?: number
   belief?: {
     evidence?: string[]
     signalLog?: string[]

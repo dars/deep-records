@@ -8,6 +8,7 @@ import type {
 import { occupationAliases, occupations } from '../generated/content'
 import { countRitualTurns, isRitualClimaxForced, ritualGraceTurns } from './ritual'
 import { computeWitnessReadiness, witnessRipeThreshold } from './officer'
+import { formatGameClock } from '../../shared/state'
 import { selectReferenceSections } from '../config/references'
 
 const coreWorldSummary = `
@@ -190,6 +191,10 @@ function buildRuntimeSummary(state?: KeeperWireState) {
     typeof state.sanity === 'number'
       ? `${state.sanity}`
       : formatSanitySummary(state.sanity)
+  const clock =
+    typeof state.clockMinutes === 'number'
+      ? `7月15日 ${formatGameClock(state.clockMinutes)}（雨夜；儀式相關人員以凌晨三時的滿潮為時限）`
+      : '7月15日 深夜（雨夜）'
   const hitPoints = `${state.hitPoints?.current ?? '未知'} / ${state.hitPoints?.max ?? '未知'}`
   const belief = state.belief
   const flags = Object.entries(state.flags ?? {})
@@ -200,6 +205,7 @@ function buildRuntimeSummary(state?: KeeperWireState) {
     `- 目前場景：${state.currentSceneId ?? '未知'}`,
     `- SAN：${sanity}`,
     `- 生命：${hitPoints}`,
+    `- 現在時刻：${clock}`,
     `- 信念階段：${belief?.stage ?? 'skeptical'}`,
     `- 已測試神話規則：${formatList(belief?.testedMythRules)}`,
     `- 已驗證神話規則：${formatList(belief?.verifiedMythRules)}`,

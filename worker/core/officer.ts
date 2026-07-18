@@ -67,6 +67,14 @@ export function isPlayerRestrained(state?: KeeperWireState): boolean {
 // 「鄰居反映怪聲」本來就與玩家做了什麼無關，他照自己的時間表出現。
 // 這同時是漂流玩家的節奏保證與模型呼叫的成本上限。
 export const scheduledArrivalTurn = 12
+// 時間觸發：阿陽的例行到場時刻（02:05）；儀式死線前的押送下令時刻（02:45，
+// 凌晨三時滿潮前房東必須完成準備）。時鐘缺值時退回回合數判斷。
+export const officerArrivalClockMinutes = 2 * 60 + 5
+export const ritualDeadlineClockMinutes = 2 * 60 + 45
+
+function clockOf(state?: KeeperWireState): number | undefined {
+  return typeof state?.clockMinutes === 'number' ? state.clockMinutes : undefined
+}
 
 export function handleOfficerArrival(
   sceneId: string,
@@ -87,9 +95,12 @@ export function handleOfficerArrival(
   const callsPolice =
     intent?.type === 'call_police' ||
     (callsPolicePattern.test(actionText) && !isLeaving)
+  const clock = clockOf(state)
   const arrivalDue =
     countSignificantInvestigations(state) >= 3 ||
-    (turnIndex ?? 0) >= scheduledArrivalTurn
+    (clock !== undefined
+      ? clock >= officerArrivalClockMinutes
+      : (turnIndex ?? 0) >= scheduledArrivalTurn)
 
   if (!callsPolice && !arrivalDue) {
     return undefined
@@ -440,10 +451,15 @@ export function processEscortPacing(
     memoryCardPattern.test(actionTextForSummons) &&
     discussWithOfficerPattern.test(actionTextForSummons)
 
-  // 夠熟且問話已有最短鋪陳，或硬上限到（房東今晚必須完成儀式）→ 召喚。
+  // 夠熟且問話已有最短鋪陳、在場硬上限到，或儀式死線逼近
+  //（凌晨三時的滿潮不等人）→ 召喚。
+  const clock = clockOf(state)
+  const deadlineReached =
+    clock !== undefined && clock >= ritualDeadlineClockMinutes && stayCount >= 2
+
   if (
     !isDiscussingCard &&
-    ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length)
+    ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length || deadlineReached)
   ) {
     return { preempt: buildSummonsResponse(ripe, isWireStateDisordered(state)) }
   }

@@ -16,8 +16,22 @@ export type CanonicalBelief = {
   verifiedMythRules: string[]
 }
 
+// 遊戲時鐘：7月15日深夜 01:17 開始，每回合前進 4 分鐘。
+// 時間是劇情推進的觸發器之一（阿陽的到場時刻、儀式死線）。
+export const gameClockStartMinutes = 1 * 60 + 17
+export const gameClockStepMinutes = 4
+
+export function formatGameClock(clockMinutes: number): string {
+  const hours = Math.floor(clockMinutes / 60) % 24
+  const minutes = clockMinutes % 60
+  const period = hours >= 3 && hours < 6 ? '凌晨' : '深夜'
+
+  return `${period} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
 export type CanonicalGameState = {
   belief: CanonicalBelief
+  clockMinutes: number
   currentSceneId: string
   discoveredClues: string[]
   ending?: {
@@ -63,6 +77,7 @@ export function canonicalFromWireState(
       testedMythRules: wire?.belief?.testedMythRules ?? [],
       verifiedMythRules: wire?.belief?.verifiedMythRules ?? [],
     },
+    clockMinutes: wire?.clockMinutes ?? gameClockStartMinutes,
     currentSceneId: wire?.currentSceneId ?? '000_prologue',
     discoveredClues: wire?.discoveredClues ?? [],
     flags: wire?.flags ?? {},
@@ -124,6 +139,7 @@ export function applyTurnEffects(
   return {
     ...state,
     belief: reduceBelief(state.belief, observation, beliefUpdate),
+    clockMinutes: state.clockMinutes + gameClockStepMinutes,
     currentSceneId: nextSceneId,
     discoveredClues: addUnique(state.discoveredClues, effects?.discoverClues),
     ending: effects?.endingId

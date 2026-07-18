@@ -38,6 +38,7 @@ export type InvestigatorProfile = {
 }
 
 export type InvestigationState = {
+  clockMinutes: number
   belief: {
     evidence: string[]
     signalLog: string[]
@@ -105,6 +106,7 @@ export function createInitialInvestigationState(
       testedMythRules: [],
       verifiedMythRules: [],
     },
+    clockMinutes: 77,
     currentSceneId: '000_prologue',
     discoveredClues: [],
     ending: undefined,
