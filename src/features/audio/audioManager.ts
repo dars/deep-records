@@ -525,14 +525,11 @@ export function resolveBgmMood(state: {
     return 'ritual'
   }
 
-  // 阿陽登場（敲門）不立即切換——保留「他可能真的只是警察」的曖昧期；
-  // 氣氛實際轉為緊張對峙後才進 dread：加重語氣、持鑰匙進門、
-  // 躲藏被找到、被制伏、押送召喚。
+  // 阿陽登場、敲門、進門都不切換——曖昧期一路保留；
+  // 只有真正撕破臉才進 dread：被制伏、玩家對他動手、押送召喚。
   const officerTension =
-    state.flags.officer_knock_escalated === true ||
-    state.flags.officer_entered_with_key === true ||
-    state.flags.officer_found_hiding_player === true ||
     state.flags.officer_player_restrained === true ||
+    state.flags.player_attacked_officer === true ||
     state.flags.officer_escort_summons === true
 
   if (officerTension) {

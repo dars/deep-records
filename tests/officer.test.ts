@@ -152,6 +152,7 @@ describe('阿陽登場後的封鎖', () => {
 })
 
 import {
+  attackOfficerPattern,
   computeWitnessReadiness,
   processEscortPacing,
   processOfficerDoorPhase,
@@ -810,5 +811,78 @@ describe('HP 歸零的無名屍結局', () => {
     })
 
     expect(result.narration.join('')).toContain('水聲')
+  })
+})
+
+describe('節奏割裂修正', () => {
+  it('首次讀取記憶卡的回合不觸發登場；讀過之後恢復', () => {
+    const milestonesMet = {
+      flags: {
+        hidden_memory_card_found: true,
+        star_spawn_idol_examined: true,
+      },
+      visitedScenes: ['003_friend_bedroom'],
+    }
+
+    expect(
+      handleOfficerArrival(
+        '003_friend_apartment_livingroom',
+        '接上讀卡機，讀取記憶卡的內容',
+        undefined,
+        milestonesMet,
+      ),
+    ).toBeUndefined()
+
+    expect(
+      handleOfficerArrival(
+        '003_friend_apartment_livingroom',
+        '再次查看記憶卡的照片',
+        undefined,
+        {
+          ...milestonesMet,
+          flags: {
+            ...milestonesMet.flags,
+            memory_card_initial_files_opened: true,
+          },
+        },
+      )?.effects?.setFlags?.officer_a_yang_arrived,
+    ).toBe(true)
+  })
+
+  it('與阿陽討論記憶卡時不觸發押送召喚；一般回合照常', () => {
+    const summonReady = {
+      flags: {
+        officer_a_yang_arrived: true,
+        officer_door_opened: true,
+        officer_stay_turn_1: true,
+        officer_stay_turn_2: true,
+        memory_card_initial_files_opened: true,
+      },
+      belief: { stage: 'hypothesis' as const },
+      discoveredClues: ['item_deep_sea_gold_brooch'],
+      sanity: { current: 50, lostToday: 3, starting: 55 },
+    }
+
+    const discussing = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '拿記憶卡的照片給他看，跟他討論房東不老的事',
+      undefined,
+      summonReady,
+    )
+    expect(discussing?.preempt).toBeUndefined()
+
+    const normal = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '沉默地觀察他的反應',
+      undefined,
+      summonReady,
+    )
+    expect(normal?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
+  })
+
+  it('攻擊阿陽的動作模式可辨識', () => {
+    expect(attackOfficerPattern.test('揮拳打向阿陽的臉')).toBe(true)
+    expect(attackOfficerPattern.test('撲向他，試圖奪槍')).toBe(true)
+    expect(attackOfficerPattern.test('冷靜地回答他的問題')).toBe(false)
   })
 })

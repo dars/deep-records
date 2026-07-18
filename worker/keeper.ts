@@ -27,7 +27,9 @@ import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
 import { callOllamaKeeper } from './core/ollama'
 import {
+  attackOfficerPattern,
   handleOfficerArrival,
+  isOfficerPresent,
   processEscortPacing,
   processOfficerDoorPhase,
   processOfficerHiddenPhase,
@@ -96,7 +98,7 @@ async function readRuntimeConfig(env: Env): Promise<KeeperRuntimeConfig> {
   }
 }
 
-const workerVersion = 'keeper-session-2026-07-18-32'
+const workerVersion = 'keeper-session-2026-07-18-33'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -418,10 +420,19 @@ export async function executeKeeperTurn(
     turnModel = modelTurn.model
   }
 
+  // 對阿陽動手：記錄攻擊旗標（BGM 緊張切換與後續對峙敘事的依據）。
+  const attacksOfficer =
+    isOfficerPresent(body.state) &&
+    body.state?.flags?.player_attacked_officer !== true &&
+    attackOfficerPattern.test(
+      `${body.selectedAction?.label ?? ''}\n${playerAction}`,
+    )
+
   const markFlags = {
     ...doorPhase?.markFlags,
     ...ritualPacing?.markFlags,
     ...escortPacing?.markFlags,
+    ...(attacksOfficer ? { player_attacked_officer: true } : {}),
   }
 
   if (Object.keys(markFlags).length > 0) {

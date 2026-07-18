@@ -18,6 +18,16 @@ const fourthFloorScenes = new Set([
   '006_friend_balcony',
 ])
 
+// 記憶卡的「首次閱讀」與「與阿陽討論」判斷（與 deterministic.ts 的讀卡流程一致）。
+const memoryCardPattern = /記憶卡|micro ?sd|讀卡機|card reader/i
+const readingPattern = /讀取|查看|打開|瀏覽|連接|接上|插入|檔案|資料|照片|影片/i
+const discussWithOfficerPattern =
+  /阿陽|警員|警察|員警|遞給|交給|給他|讓他|他看|他讀|一起看|問他|討論|說明|解釋/
+
+// 對阿陽（或在場信徒）動手的偵測：BGM 緊張切換與後續敘事依據。
+export const attackOfficerPattern =
+  /攻擊|揮拳|出拳|打(?:他|向|倒)|毆|撲向|襲擊|動手|勒住|掐|砸向|踢(?:他|向)|奪(?:槍|械)|反擊/
+
 const callsPolicePattern = /報警|打給警|打電話.*警|撥打?\s*110|打\s*110|叫警察|通知警方|請警方/
 
 // 「三次實質調查」的近似：以確定性流程會設下的里程碑推導，
@@ -82,6 +92,18 @@ export function handleOfficerArrival(
     (turnIndex ?? 0) >= scheduledArrivalTurn
 
   if (!callsPolice && !arrivalDue) {
+    return undefined
+  }
+
+  // 首讀豁免：玩家第一次調查記憶卡內容的回合不打斷（避免按下讀卡
+  // 卻被敲門搶佔的割裂感）；讀過之後（重複調查）不在此限。
+  const isFirstCardReading =
+    !callsPolice &&
+    state?.flags?.memory_card_initial_files_opened !== true &&
+    memoryCardPattern.test(actionText) &&
+    readingPattern.test(actionText)
+
+  if (isFirstCardReading) {
     return undefined
   }
 
@@ -411,12 +433,28 @@ export function processEscortPacing(
   const stayCount = stayTurnFlags.filter((flag) => flags[flag] === true).length
   const ripe = computeWitnessReadiness(state) >= witnessRipeThreshold
 
+  // 玩家正與阿陽討論記憶卡時不觸發召喚（避免劇情割裂）；
+  // 該回合仍計入在場回合，且討論本身通常在累積信念與熟成度。
+  const actionTextForSummons = `${selectedAction?.label ?? ''}\n${playerAction}`
+  const isDiscussingCard =
+    memoryCardPattern.test(actionTextForSummons) &&
+    discussWithOfficerPattern.test(actionTextForSummons)
+
   // 夠熟且問話已有最短鋪陳，或硬上限到（房東今晚必須完成儀式）→ 召喚。
-  if ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length) {
+  if (
+    !isDiscussingCard &&
+    ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length)
+  ) {
     return { preempt: buildSummonsResponse(ripe, isWireStateDisordered(state)) }
   }
 
-  return { markFlags: { [stayTurnFlags[stayCount]]: true } }
+  return {
+    markFlags: {
+      ...(stayCount < stayTurnFlags.length
+        ? { [stayTurnFlags[stayCount]]: true }
+        : {}),
+    },
+  }
 }
 
 function buildSummonsResponse(ripe: boolean, disordered = false): KeeperResponse {

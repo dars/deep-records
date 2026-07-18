@@ -24,6 +24,7 @@ export const systemFlags = [
   'officer_stay_turn_4',
   'officer_stay_turn_5',
   'officer_escort_summons',
+  'player_attacked_officer',
 
   // 五樓終局節奏
   'fifth_floor_turn_1',
