@@ -10,6 +10,22 @@ import { occupationAliases } from '../generated/content'
 import { hasOfficerArrived, isOfficerPresent } from './officer'
 import { getCurrentSanity, resolveSanityCheck } from './sanity'
 
+// 阿陽在場時，記憶卡腳本只在玩家點選這些自產按鈕時繼續執行；
+// 其餘（含所有自由輸入）一律讓位給模型演出社交互動。
+const memoryCardSelfReadActionIds = new Set([
+  'continue-search-for-memory-card-source',
+  'return-to-current-room-search',
+  'connect-reader-to-phone',
+  'continue-bedroom-search',
+  'go-to-bedroom-for-reader',
+  'keep-memory-card-for-later',
+  'find-compatible-card-reader',
+  'inspect-memory-card-old-photos',
+  'compare-memory-card-with-apartment',
+  'stop-reading-memory-card-for-now',
+  'scan-memory-card-file-list',
+])
+
 export function handleDeterministicSceneTransition(
   sceneId: string,
   playerAction: string,
@@ -162,13 +178,13 @@ export function handleDeterministicInvestigationAction(
     return undefined
   }
 
-  // 阿陽正面接觸後，涉及他的記憶卡動作（遞卡、要求協助、與他討論內容）
-  // 屬於社交互動，交給模型依 officer_a_yang.md 的規則演出，腳本不得劫持。
+  // 阿陽正面接觸後，記憶卡相關的自由輸入預設一律交給模型演出（依
+  // officer_a_yang.md 的規則）：遞卡、討論、展示……說法無法窮舉，
+  // 靠關鍵字黑名單只會不斷漏判（曾漏掉「展示」）。只有玩家明確點選
+  // 這個腳本自己開出的按鈕時，才視為單純自行翻卡，讓腳本繼續。
   if (
     isOfficerPresent(state) &&
-    /阿陽|警員|警察|員警|警用|遞給|交給|給他|讓他|他看|他讀|一起看|問他|討論/.test(
-      actionText,
-    )
+    !(selectedAction && memoryCardSelfReadActionIds.has(selectedAction.id))
   ) {
     return undefined
   }

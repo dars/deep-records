@@ -338,12 +338,50 @@ describe('阿陽在場時的記憶卡互動', () => {
     ).toBeUndefined()
   })
 
-  it('阿陽在場但玩家自己讀卡：腳本流程照常', () => {
+  it('把手機螢幕轉向他展示記憶卡內容：同樣交給模型，不觸發重複讀卡腳本', () => {
+    expect(
+      handleDeterministicInvestigationAction(
+        '003_friend_apartment_livingroom',
+        '將手機螢幕轉向他，向他展示記憶卡裡不老的房東照片與四樓紀錄',
+        undefined,
+        {
+          ...officerPresentState,
+          flags: {
+            ...officerPresentState.flags,
+            memory_card_initial_files_opened: true,
+          },
+        },
+      ),
+    ).toBeUndefined()
+  })
+
+  it('阿陽在場時，自由輸入一律交給模型（即使措辭看似單純翻卡）', () => {
     const response = handleDeterministicInvestigationAction(
       '003_friend_apartment_livingroom',
       '自己接上讀卡機，讀取記憶卡的內容',
       undefined,
       officerPresentState,
+    )
+
+    expect(response).toBeUndefined()
+  })
+
+  it('阿陽在場但玩家點選腳本自己開出的翻卡按鈕：腳本流程照常', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_apartment_livingroom',
+      '自己接上讀卡機，讀取記憶卡的內容',
+      {
+        beliefSignal: 'rational_investigation',
+        id: 'compare-memory-card-with-apartment',
+        label: '把記憶卡照片與眼前住處格局互相比對',
+      },
+      {
+        ...officerPresentState,
+        flags: {
+          ...officerPresentState.flags,
+          memory_card_initial_files_opened: true,
+        },
+      },
     )
 
     expect(response).toBeDefined()

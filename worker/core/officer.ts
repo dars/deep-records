@@ -22,7 +22,7 @@ const fourthFloorScenes = new Set([
 const memoryCardPattern = /記憶卡|micro ?sd|讀卡機|card reader/i
 const readingPattern = /讀取|查看|打開|瀏覽|連接|接上|插入|檔案|資料|照片|影片/i
 const discussWithOfficerPattern =
-  /阿陽|警員|警察|員警|遞給|交給|給他|讓他|他看|他讀|一起看|問他|討論|說明|解釋/
+  /阿陽|警員|警察|員警|遞給|交給|給他|讓他|他看|他讀|一起看|問他|討論|說明|解釋|展示|秀給/
 
 // 對阿陽（或在場信徒）動手的偵測：BGM 緊張切換與後續敘事依據。
 export const attackOfficerPattern =
