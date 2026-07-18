@@ -151,9 +151,23 @@ export function ensureAvailableActions(
 
   return {
     ...response,
-    actions: sceneFallbackActions[sceneId] ?? [],
+    actions: sceneFallbackActions[sceneId] ?? genericFallbackActions,
   }
 }
+
+// 最後保底：任何非楔子、非結局回合都不得出現零選項。
+const genericFallbackActions: KeeperAction[] = [
+  {
+    beliefSignal: 'rational_investigation',
+    id: 'generic-look-around',
+    label: '重新環顧四周，尋找先前忽略的細節',
+  },
+  {
+    beliefSignal: 'withhold_judgment',
+    id: 'generic-review-clues',
+    label: '停下來整理目前掌握的線索與想法',
+  },
+]
 
 // 玩家已執行過的行動（history 中的 playerAction）不得再次作為選項出現。
 export function removeRepeatedActions(

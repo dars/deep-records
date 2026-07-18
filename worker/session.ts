@@ -39,8 +39,16 @@ export class KeeperSession {
       )
     }
 
-    const canonical = stored ?? canonicalFromWireState(body.state)
-    // 場景與狀態一律以 server 為準：client 傳來的 sceneId/state 只在播種時有效。
+    const seeded = stored ?? canonicalFromWireState(body.state)
+    // 楔子出口是前端驅動的固定轉換（resolveRequestSceneId 的特例）：
+    // 這是唯一允許 client 主張場景的情況，其餘一律以 server 為準。
+    const claimsPrologueExit =
+      seeded.currentSceneId === '000_prologue' &&
+      body.sceneId === '001_apartment_entrance'
+    const canonical = claimsPrologueExit
+      ? { ...seeded, currentSceneId: '001_apartment_entrance' }
+      : seeded
+    // 場景與狀態以 server 為準：client 傳來的 sceneId/state 只在播種時有效。
     const effectiveBody: KeeperRequestBody = {
       ...body,
       sceneId: canonical.currentSceneId,
