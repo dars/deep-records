@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { KeeperResponse } from '../shared/keeper'
 import { computeBeliefUpdate, gateWitnessEnding } from '../worker/core/belief'
 import { observationBeliefSignals } from '../worker/core/gemini'
+import { ollamaKeeperSchema } from '../worker/core/ollama'
 import { beliefSignals } from '../shared/keeper'
 
 function stateWithLog(signalLog: string[], stage?: string) {
@@ -153,6 +154,17 @@ describe('observation schema 與信念訊號的一致性', () => {
     // （曾漏列 rely_on_myth，導致最基本的依賴訊號記錄不到）。
     for (const signal of beliefSignals) {
       expect(observationBeliefSignals).toContain(signal)
+    }
+  })
+})
+
+describe('ollama schema 與信念訊號的一致性', () => {
+  it('observation 訊號 enum 覆蓋所有共享信念訊號', () => {
+    const enumValues =
+      ollamaKeeperSchema.properties.observation.properties.signal.enum
+
+    for (const signal of beliefSignals) {
+      expect(enumValues).toContain(signal)
     }
   })
 })

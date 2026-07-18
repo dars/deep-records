@@ -53,3 +53,9 @@ ELEVENLABS_VOICE_ID = "kbrsaic1zriFXx1pgRYN"
 ELEVENLABS_MODEL_ID = "eleven_v3"
 # 五樓／強制高潮回合改用的高階模型；刪除此行即可停用混合路由。
 GEMINI_CLIMAX_MODEL = "gemini-3.1-pro-preview"
+# 供應商切換（實驗）：改成 "ollama" 後模型回合走 tunnel 後的本機 Ollama（失敗退回 Gemini）。
+# tunnel 有 Cloudflare Access 保護時，另以 secret 設定 CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET。
+KEEPER_PROVIDER = "gemini"
+OLLAMA_URL = "https://agent.code4soul.dev/api/chat"
+OLLAMA_MODEL = "gemma4:12b"
+OLLAMA_TIMEOUT_MS = "90000"

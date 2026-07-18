@@ -16,7 +16,7 @@ const requestTimeoutMs = 45_000
 const retryDelayMs = 700
 const retryableStatuses = new Set([429, 500, 502, 503])
 
-const actionBeliefSignals = [
+export const actionBeliefSignals = [
   'none',
   'rational_investigation',
   'withhold_judgment',

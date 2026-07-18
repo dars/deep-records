@@ -25,6 +25,7 @@ import { logTurnEvent, type TurnSource } from './core/analytics'
 import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
+import { callOllamaKeeper } from './core/ollama'
 import {
   handleOfficerArrival,
   processEscortPacing,
@@ -56,14 +57,22 @@ export type Env = {
   ELEVENLABS_API_KEY?: string
   ELEVENLABS_VOICE_ID?: string
   GEMINI_API_KEY: string
+  CF_ACCESS_CLIENT_ID?: string
+  CF_ACCESS_CLIENT_SECRET?: string
   // 混合路由：五樓／強制高潮回合改用的高階模型；未設定時全程使用預設模型。
   GEMINI_CLIMAX_MODEL?: string
+  // 供應商切換（實驗）：'ollama' 時模型回合改走 tunnel 後的本機 Ollama，
+  // 失敗自動退回 Gemini。其餘值（或未設定）＝Gemini。
+  KEEPER_PROVIDER?: string
+  OLLAMA_MODEL?: string
+  OLLAMA_TIMEOUT_MS?: string
+  OLLAMA_URL?: string
   KEEPER_RATE_LIMITER?: RateLimiter
   KEEPER_SESSION?: DurableObjectNamespace
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-29'
+const workerVersion = 'keeper-session-2026-07-18-30'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -102,6 +111,10 @@ export default {
           climaxModel: env.GEMINI_CLIMAX_MODEL ?? null,
           model: geminiModel,
           ok: true,
+          provider: env.KEEPER_PROVIDER === 'ollama' ? 'ollama' : 'gemini',
+          ...(env.KEEPER_PROVIDER === 'ollama'
+            ? { ollamaModel: env.OLLAMA_MODEL ?? 'gemma4:12b' }
+            : {}),
           version: workerVersion,
         },
         200,
@@ -426,15 +439,34 @@ async function runModelTurn(
     selectedAction: body.selectedAction,
     state: body.state,
   })
-  // 混合路由：五樓與強制高潮回合是玩家記憶最深的段落，
-  // 改用高階模型拉高敘事品質；其餘回合維持低延遲低成本的預設模型。
-  const isClimaxTurn =
-    sceneId === '007_landlord_apartment' ||
-    body.state?.flags?.ritual_forced_climax === true
-  const model =
-    isClimaxTurn && env.GEMINI_CLIMAX_MODEL ? env.GEMINI_CLIMAX_MODEL : geminiModel
-  const geminiResult = await callGeminiKeeper(env, prompt, model)
-  let modelResponse = geminiResult.response
+  // 供應商切換（實驗）：Ollama 模式下所有模型回合走本機模型，
+  // 失敗（連線、逾時、解析）自動退回 Gemini，遊戲不中斷。
+  let modelResponse: KeeperResponse | undefined
+  let usedModel: string
+
+  if (env.KEEPER_PROVIDER === 'ollama' && env.OLLAMA_URL) {
+    const ollamaResult = await callOllamaKeeper(env, prompt)
+    modelResponse = ollamaResult.response
+    usedModel = ollamaResult.modelUsed
+
+    if (!modelResponse) {
+      console.error('ollama_fallback_to_gemini')
+      const geminiResult = await callGeminiKeeper(env, prompt, geminiModel)
+      modelResponse = geminiResult.response
+      usedModel = geminiResult.modelUsed
+    }
+  } else {
+    // 混合路由：五樓與強制高潮回合是玩家記憶最深的段落，
+    // 改用高階模型拉高敘事品質；其餘回合維持低延遲低成本的預設模型。
+    const isClimaxTurn =
+      sceneId === '007_landlord_apartment' ||
+      body.state?.flags?.ritual_forced_climax === true
+    const model =
+      isClimaxTurn && env.GEMINI_CLIMAX_MODEL ? env.GEMINI_CLIMAX_MODEL : geminiModel
+    const geminiResult = await callGeminiKeeper(env, prompt, model)
+    modelResponse = geminiResult.response
+    usedModel = geminiResult.modelUsed
+  }
 
   // SAN 完全 server 權威：模型只能透過 effects.sanityCheck 申報事件，
   // 裸 sanityDelta 一律剝除（sentinel 回合曾讓模型自填的損失直接通過）。
@@ -459,7 +491,7 @@ async function runModelTurn(
   )
 
   return {
-    model: geminiResult.modelUsed,
+    model: usedModel,
     response: ensureAvailableActions(
       constrainedResponse,
       sceneId,
