@@ -711,3 +711,66 @@ describe('見證者熟成度與押送節奏', () => {
     ).toBeUndefined()
   })
 })
+
+describe('瘋狂濾鏡：腳本節點的失序變體', () => {
+  const disorderedSanity = { current: 47, lostToday: 8, starting: 55 }
+
+  it('失序玩家聽到的敲門不是人的敲門', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '站在原地',
+      undefined,
+      {
+        flags: {
+          hidden_memory_card_found: true,
+          memory_card_initial_files_opened: true,
+          star_spawn_idol_examined: true,
+        },
+        sanity: disorderedSanity,
+      },
+    )
+
+    expect(response?.narration.join('')).toContain('濕重')
+    expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
+  })
+
+  it('穩定玩家維持寫實敘事', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '站在原地',
+      undefined,
+      {
+        flags: {
+          hidden_memory_card_found: true,
+          memory_card_initial_files_opened: true,
+          star_spawn_idol_examined: true,
+        },
+        sanity: { current: 55, lostToday: 0, starting: 55 },
+      },
+    )
+
+    expect(response?.narration.join('')).not.toContain('濕重')
+  })
+
+  it('失序召喚：對講機裡是水聲；機制旗標不變', () => {
+    const result = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '喃喃自語',
+      undefined,
+      {
+        flags: {
+          officer_a_yang_arrived: true,
+          officer_door_opened: true,
+          officer_stay_turn_1: true,
+          officer_stay_turn_2: true,
+          memory_card_initial_files_opened: true,
+        },
+        sanity: disorderedSanity,
+        belief: { stage: 'hypothesis' },
+      },
+    )
+
+    expect(result?.preempt?.narration.join('')).toContain('水聲')
+    expect(result?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
+  })
+})

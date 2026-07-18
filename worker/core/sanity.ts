@@ -70,6 +70,17 @@ export function resolveSanityCheck(
   }
 }
 
+// 失序判斷（sanity-rules.md 累計損失分層 ≥6）：瘋狂濾鏡與行為接管的依據。
+export function isWireStateDisordered(state?: KeeperWireState): boolean {
+  const sanity = state?.sanity
+
+  if (typeof sanity !== 'object' || sanity === null) {
+    return false
+  }
+
+  return (sanity.lostToday ?? 0) >= 6
+}
+
 export function getCurrentSanity(state?: KeeperWireState): number {
   if (typeof state?.sanity === 'number') {
     return state.sanity

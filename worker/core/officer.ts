@@ -7,6 +7,7 @@ import type {
   KeeperWireState,
 } from '../../shared/keeper'
 import { leavingPattern } from './ending'
+import { isWireStateDisordered } from './sanity'
 
 const fourthFloorScenes = new Set([
   '002_friend_apartment',
@@ -85,9 +86,10 @@ export function handleOfficerArrival(
   }
 
   const isInStairwell = sceneId === '002_friend_apartment'
+  const disordered = isWireStateDisordered(state)
   const narration = callsPolice
-    ? buildCalledArrivalNarration(isInStairwell)
-    : buildScheduledArrivalNarration(isInStairwell)
+    ? buildCalledArrivalNarration(isInStairwell, disordered)
+    : buildScheduledArrivalNarration(isInStairwell, disordered)
 
   return {
     actions: isInStairwell ? stairwellArrivalActions : doorKnockActions,
@@ -146,7 +148,22 @@ const stairwellArrivalActions: KeeperAction[] = [
   },
 ]
 
-function buildScheduledArrivalNarration(isInStairwell: boolean): string[] {
+function buildScheduledArrivalNarration(
+  isInStairwell: boolean,
+  disordered: boolean,
+): string[] {
+  if (disordered) {
+    return isInStairwell
+      ? [
+          '樓下傳來上樓的聲音。你數著——但數不準：有時是兩隻腳的節奏，有時你發誓聽見第三下著地，濕的、軟的，像有什麼東西跟在那腳步的影子裡一起上來。',
+          '轉角出現的輪廓穿著制服。是個警察——應該是。可是燈光掃過他肩膀的瞬間，你看見那套制服底下的形狀動了一下，像是布料下面還有一層東西沒對齊。他開口了，聲音平穩得完美：「你好，我們接到鄰居反映……」完美得像是背出來的。',
+        ]
+      : [
+          '腳步聲上樓了。一階、一階——不疾不徐，規律得不像活人。你聽見無線電的雜訊，但在雜訊的底下，你發誓還有別的：一種濕潤的、拖曳的、貼著牆的聲音，跟腳步同步。',
+          '然後門被敲了三下。不是拳頭敲鐵門的聲音——你聽出來了，那更沉、更悶，像某種濕重的東西拍在門板上。門外傳來平穩的男聲，自稱警察，字句標準得像照著稿念。門外的東西會說話。而且它知道該說什麼。',
+        ]
+  }
+
   if (isInStairwell) {
     return [
       '你還站在四樓門外的樓梯間，樓下卻傳來規律的腳步聲，一階一階往上，混著無線電短促的雜訊與金屬裝備輕碰的聲響。',
@@ -160,7 +177,19 @@ function buildScheduledArrivalNarration(isInStairwell: boolean): string[] {
   ]
 }
 
-function buildCalledArrivalNarration(isInStairwell: boolean): string[] {
+function buildCalledArrivalNarration(
+  isInStairwell: boolean,
+  disordered: boolean,
+): string[] {
+  if (disordered) {
+    return [
+      '電話接通了。值班人員的聲音在雜訊裡忽遠忽近，你說著地址，卻越說越不確定自己報的數字對不對——電話那頭安靜得太徹底，像整個機房只有那一個聲音，而它只是在等你說完。',
+      isInStairwell
+        ? '掛斷後快得反常，樓梯間就響起腳步聲。制服的輪廓在轉角出現，朝你點頭，說是你報的案。可是你報案才過了幾分鐘？雨這麼大。他身上一滴水都沒有。'
+        : '掛斷後快得反常，門就被敲了三下。那個自稱警察的聲音說：剛才是這裡報的案吧。你盯著門，突然想不起來——你剛才報案的時候，說過門牌號碼嗎？',
+    ]
+  }
+
   const arrival = isInStairwell
     ? '掛斷後不到幾分鐘，樓梯間就響起上樓的腳步聲。一名體格精壯的制服員警在轉角出現，朝你點了點頭：「是你報的案吧？我是轄區的，姓楊。說說看，什麼狀況？」'
     : '掛斷後不到幾分鐘，公共樓梯間就響起腳步聲，接著鐵門被敲了三下。門外是個平穩的男聲：「警察，剛才是這裡報的案吧？麻煩開個門。」'
@@ -262,7 +291,7 @@ export function processOfficerDoorPhase(
     return {
       forceSceneId,
       markFlags: { player_hiding: isHidingNow },
-      preempt: buildEscalationResponse(),
+      preempt: buildEscalationResponse(isWireStateDisordered(state)),
     }
   }
 
@@ -272,7 +301,7 @@ export function processOfficerDoorPhase(
     return { markFlags: { player_hiding: true }, preempt: buildHiddenKeyEntryResponse() }
   }
 
-  return { forceSceneId, preempt: buildKeyEntryResponse() }
+  return { forceSceneId, preempt: buildKeyEntryResponse(isWireStateDisordered(state)) }
 }
 
 // 只匹配「藏自己」：藏起／藏到常指藏物品（例如把記憶卡藏起來），不算躲藏。
@@ -374,7 +403,9 @@ export function processEscortPacing(
     const resists = /抗拒|反抗|掙脫|推開|拒絕|不上去|不跟|逃|甩開|掙扎/.test(actionText)
     const ripe = computeWitnessReadiness(state) >= witnessRipeThreshold
 
-    return { preempt: buildEscortResponse(ripe, resists) }
+    return {
+      preempt: buildEscortResponse(ripe, resists, isWireStateDisordered(state)),
+    }
   }
 
   const stayCount = stayTurnFlags.filter((flag) => flags[flag] === true).length
@@ -382,13 +413,13 @@ export function processEscortPacing(
 
   // 夠熟且問話已有最短鋪陳，或硬上限到（房東今晚必須完成儀式）→ 召喚。
   if ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length) {
-    return { preempt: buildSummonsResponse(ripe) }
+    return { preempt: buildSummonsResponse(ripe, isWireStateDisordered(state)) }
   }
 
   return { markFlags: { [stayTurnFlags[stayCount]]: true } }
 }
 
-function buildSummonsResponse(ripe: boolean): KeeperResponse {
+function buildSummonsResponse(ripe: boolean, disordered = false): KeeperResponse {
   return {
     actions: [
       {
@@ -411,12 +442,17 @@ function buildSummonsResponse(ripe: boolean): KeeperResponse {
     effects: {
       setFlags: { officer_escort_summons: true },
     },
-    narration: [
+    narration: disordered
+      ? [
+          '對講機響了。但從那個小小的黑盒子裡漏出來的不是雜訊——是水聲。很深的水。然後一個沙啞的聲音穿過水面說了三個字：「帶上來。」你看著阿陽把對講機收好，動作恭敬得不像對待機器。',
+          '他轉過身。那張臉還是那張臉，可是你突然明白了一件事，明白得渾身發冷：從他進門到現在，你一次都沒有看見他眨眼。「樓上有人想見你。」殼裡的聲音說，「你朋友也在上面。」',
+        ]
+      : [
       '阿陽腰間的對講機忽然響了一聲。他側過身，把音量壓到最低——但這一次你還是聽見了。那不是勤務頻道的制式對答，是一個沙啞的、上了年紀的聲音，只說了三個字：「帶上來。」',
       ripe
         ? '阿陽收起對講機，回頭看你的眼神變了——不再是查案警員打量證人的眼神，而是某種近乎鄭重的注視。「樓上有人想見你。」他說，語氣平穩，「你朋友也在上面。你不是一直想知道發生了什麼事嗎——答案在五樓。」'
         : '阿陽收起對講機，臉上那層公事化的耐性像退潮一樣消失了。「時間到了。」他說，朝樓梯的方向偏了偏頭，「樓上有人要見你。你朋友也在上面。走吧——這不是商量。」',
-    ],
+        ],
     observation: {
       reason: '房東透過對講機下令，阿陽開始執行押送。',
       signal: 'none',
@@ -424,9 +460,14 @@ function buildSummonsResponse(ripe: boolean): KeeperResponse {
   }
 }
 
-function buildEscortResponse(ripe: boolean, resists: boolean): KeeperResponse {
-  const arrivalNarration =
-    '五樓的門在樓梯盡頭——那扇你以為永遠鎖著的深色鐵門，此刻正從內側被緩緩拉開。濃重的燭光、鹽與海腥的氣味從門縫裡湧出來。客廳中央，阿宏被綁在椅子上，房東站在他身旁，領口的金飾在燭光下泛著濕潤的綠金色。'
+function buildEscortResponse(
+  ripe: boolean,
+  resists: boolean,
+  disordered = false,
+): KeeperResponse {
+  const arrivalNarration = disordered
+    ? '五樓的門在樓梯盡頭打開了——從內側，在你們抵達之前就開始動。門縫裡湧出來的燭光是活的，它舔過樓梯的階面朝你漫過來。客廳中央阿宏被綁在椅子上，房東站在他身旁——可是你看見的不只是房東：燭光裡他的輪廓在滲，領口那點綠金色的光濕潤地睜著，像一顆貼在喉嚨上的眼睛，而它正在看你。'
+    : '五樓的門在樓梯盡頭——那扇你以為永遠鎖著的深色鐵門，此刻正從內側被緩緩拉開。濃重的燭光、鹽與海腥的氣味從門縫裡湧出來。客廳中央，阿宏被綁在椅子上，房東站在他身旁，領口的金飾在燭光下泛著濕潤的綠金色。'
   const restrainedFlags: Record<string, boolean> = resists
     ? { officer_player_restrained: true }
     : {}
@@ -459,16 +500,22 @@ function buildEscortResponse(ripe: boolean, resists: boolean): KeeperResponse {
     },
     narration: resists
       ? [
-          '你往後退，但退路早就不存在了。阿陽的動作快得不像他的體格該有的速度——手腕被扣住、反剪，你的臉頰貼上冰冷的牆面。「何必呢。」他在你耳邊說，語氣甚至稱得上惋惜。你被半拖半押地推上樓梯，每一階都在腳下發出濕木的悶響。',
+          disordered
+            ? '你轉身想跑，但走廊在你眼前變長了。阿陽的手扣住你手腕的瞬間，你清楚地感覺到那隻手的溫度不對——太涼，而且沒有脈搏，或者脈搏慢得不屬於人。「何必呢。」殼裡的聲音在你耳邊說。你被推上樓梯，每一階都在腳下發出濕軟的聲音，像踩在某種還活著的東西上。'
+            : '你往後退，但退路早就不存在了。阿陽的動作快得不像他的體格該有的速度——手腕被扣住、反剪，你的臉頰貼上冰冷的牆面。「何必呢。」他在你耳邊說，語氣甚至稱得上惋惜。你被半拖半押地推上樓梯，每一階都在腳下發出濕木的悶響。',
           arrivalNarration,
         ]
       : ripe
         ? [
-            '阿陽沒有碰你。他只是側過身，讓出通往樓梯的方向——那個動作不像押送，像迎接。你走在前面，他跟在半步之後，樓梯間的燈一層比一層暗，濕氣一層比一層重。',
+            disordered
+              ? '它沒有碰你。它只是側過身，讓出樓梯的方向——你的腳自己動了，一階一階往上，你在意識的角落看著自己走，攔不住。樓梯間的燈一層比一層暗，暗得不像缺電，像光被什麼喝掉了。背後那個穿制服的形狀跟在半步之後，你聽見它的呼吸——如果那是呼吸。'
+              : '阿陽沒有碰你。他只是側過身，讓出通往樓梯的方向——那個動作不像押送，像迎接。你走在前面，他跟在半步之後，樓梯間的燈一層比一層暗，濕氣一層比一層重。',
             arrivalNarration,
           ]
         : [
-            '阿陽的手落在你的肩膀上，不重，但你清楚地知道那隻手不會再放開。「走吧。」他推著你往樓梯口去，步伐平穩得像例行公事。你想再說什麼，他只是搖頭：「上面等太久了。」',
+            disordered
+              ? '一隻手落在你的肩膀上。隔著布料你都能感覺到那隻手的重量在變化——一下重、一下輕，像它還沒決定好要用多少力氣才像一隻人的手。「走吧。」你的雙腳自己開始移動。你在很遠的地方看著自己被推向樓梯口。'
+              : '阿陽的手落在你的肩膀上，不重，但你清楚地知道那隻手不會再放開。「走吧。」他推著你往樓梯口去，步伐平穩得像例行公事。你想再說什麼，他只是搖頭：「上面等太久了。」',
             arrivalNarration,
           ],
     observation: {
@@ -654,7 +701,43 @@ function buildHiddenKeyEntryResponse(): KeeperResponse {
   }
 }
 
-function buildEscalationResponse(): KeeperResponse {
+function buildEscalationResponse(disordered = false): KeeperResponse {
+  if (disordered) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'open-door-after-warning',
+          label: '走向門口，把門打開——不管外面站著的是什麼',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'demand-officer-credentials',
+          label: '隔著門大喊，要「它」證明自己是人',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'keep-silent-behind-door',
+          label: '摀住耳朵蹲下來，等那個聲音自己停止',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          officer_knock_escalated: true,
+        },
+      },
+      narration: [
+        '敲擊聲又開始了，這次重得讓整面門在框裡震動——一下，一下，每一下之間的間隔精準得像節拍器。人的手不會這樣敲門。人的手敲不出這種濕悶的迴音。',
+        '「我知道裡面有人。」那個聲音說。字句還是警察的字句——妨礙公務、依法確認——可是你聽出來了，那些詞只是殼。殼的裡面有別的東西在推著它們出來，一個字一個字，像從很深的水底浮上來的氣泡。',
+      ],
+      observation: {
+        reason: '玩家持續不回應，阿陽依進門流程升級為公權力警告（玩家以瘋狂濾鏡感知）。',
+        signal: 'none',
+      },
+    }
+  }
+
   return {
     actions: [
       {
@@ -690,7 +773,44 @@ function buildEscalationResponse(): KeeperResponse {
   }
 }
 
-function buildKeyEntryResponse(): KeeperResponse {
+function buildKeyEntryResponse(disordered = false): KeeperResponse {
+  if (disordered) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'comply-with-officer-questions',
+          label: '盯著那張太過平穩的臉，順著「它」的問題回答',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'question-officer-about-key',
+          label: '質問它——為什麼那把鑰匙會認得這扇門',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'watch-officer-silently',
+          label: '退到牆邊，數它呼吸的間隔',
+        },
+      ],
+      checks: [],
+      effects: {
+        setFlags: {
+          officer_door_opened: true,
+          officer_entered_with_key: true,
+        },
+      },
+      narration: [
+        '金屬摩擦聲。鑰匙插進鎖孔——但你聽見的不是開鎖，是某種東西「認出」了這扇門：鎖芯轉動的聲音溫順得像在回應主人。鐵門開了，木門跟著開了，門從來就沒有真正擋過它。',
+        '制服的輪廓跨進玄關，占滿門框。燈光下那張臉平穩、近乎溫和，可是你看見影子——投在牆上的影子比他慢了半拍才動，肩膀的位置多了一個不該有的彎折。「配合一點，」殼裡的聲音說，「這也是保護你。」影子先笑了。',
+      ],
+      observation: {
+        reason: '玩家始終不開門，阿陽持鑰匙強制進入（玩家以瘋狂濾鏡感知）。',
+        signal: 'none',
+      },
+    }
+  }
+
   return {
     actions: [
       {
