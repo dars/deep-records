@@ -7,7 +7,7 @@ connects_to: [002_friend_apartment]
 items_available: [item_friend_apartment_spare_key]
 exit_condition: "玩家表達要上樓/進入公寓的意圖，不需要先查完線索"
 trigger_condition: 遊戲開場自動揭露
-music_mood: tense
+music_mood: rainy
 sanity_cost: 0
 references: [character_lin_xian_hong, character_landlord, item_friend_apartment_spare_key]
 ---

@@ -98,7 +98,7 @@ async function readRuntimeConfig(env: Env): Promise<KeeperRuntimeConfig> {
   }
 }
 
-const workerVersion = 'keeper-session-2026-07-18-35'
+const workerVersion = 'keeper-session-2026-07-18-36'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -218,6 +218,42 @@ export default {
           .filter(Boolean)
           .sort(),
       })
+    }
+
+    // 遊戲結束後的星級評分：每 session 一筆（重評覆蓋）。
+    if (url.pathname === '/api/rating') {
+      if (request.method !== 'POST') {
+        return json({ error: 'method_not_allowed' }, 405, corsHeaders)
+      }
+
+      if (!env.ANALYTICS_DB) {
+        return json({ error: 'unavailable' }, 500, corsHeaders)
+      }
+
+      const body = (await request.json().catch(() => ({}))) as {
+        rating?: number
+        sessionId?: string
+      }
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId : ''
+      const rating = Number(body.rating)
+      const isValidRating =
+        Number.isFinite(rating) &&
+        rating >= 0.5 &&
+        rating <= 5 &&
+        Math.round(rating * 2) === rating * 2
+
+      if (!/^[a-zA-Z0-9-]{8,64}$/.test(sessionId) || !isValidRating) {
+        return json({ error: 'invalid_rating' }, 400, corsHeaders)
+      }
+
+      await env.ANALYTICS_DB.prepare(
+        `INSERT INTO ratings (session_id, rating, ts) VALUES (?, ?, ?)
+         ON CONFLICT(session_id) DO UPDATE SET rating = excluded.rating, ts = excluded.ts`,
+      )
+        .bind(sessionId, rating, Date.now())
+        .run()
+
+      return json({ ok: true }, 200, corsHeaders)
     }
 
     if (url.pathname === '/api/tts') {

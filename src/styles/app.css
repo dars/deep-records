@@ -2764,3 +2764,21 @@
   color: rgba(148, 213, 185, 0.75) !important;
   letter-spacing: 0.22em !important;
 }
+
+/* 結局評分：半星階星級。 */
+.ending-rating { margin: 1.4rem 0 0.4rem; text-align: center; }
+.ending-rating-title { margin: 0 0 0.5rem; font-size: 0.9rem; letter-spacing: 0.12em; color: rgba(214, 222, 209, 0.66); }
+.ending-rating-stars { display: inline-flex; gap: 6px; }
+.rating-star { position: relative; display: inline-block; width: 34px; height: 34px; }
+.rating-star-glyph { font-size: 30px; line-height: 34px; color: rgba(148, 190, 170, 0.22); transition: color 0.2s; display: block; }
+.rating-star[data-fill='full'] .rating-star-glyph { color: rgba(222, 197, 132, 0.95); text-shadow: 0 0 10px rgba(222, 197, 132, 0.35); }
+.rating-star[data-fill='half'] .rating-star-glyph {
+  background: linear-gradient(90deg, rgba(222, 197, 132, 0.95) 50%, rgba(148, 190, 170, 0.22) 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rating-half { position: absolute; top: 0; width: 50%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; z-index: 1; background: transparent; }
+.rating-half.left { left: 0; }
+.rating-half.right { right: 0; }
+.ending-rating-value { margin: 0.4rem 0 0; font-size: 0.85rem; color: rgba(222, 197, 132, 0.8); letter-spacing: 0.1em; }

@@ -37,7 +37,7 @@ export async function handleAdminStats(
   }
 
   const db = env.ANALYTICS_DB
-  const [totals, funnel, endings, kinds, sources, recent] = await db.batch([
+  const [totals, funnel, endings, kinds, sources, recent, ratings] = await db.batch([
     db.prepare(
       `SELECT COUNT(DISTINCT session_id) AS sessions,
               COUNT(*) AS turns,
@@ -69,6 +69,7 @@ export async function handleAdminStats(
               MAX(ending_id) AS ending_id
          FROM turn_events GROUP BY session_id ORDER BY MAX(ts) DESC LIMIT 30`,
     ),
+    db.prepare(`SELECT COUNT(*) AS n, ROUND(AVG(rating), 2) AS avg FROM ratings`),
   ])
 
   return json({
@@ -77,6 +78,7 @@ export async function handleAdminStats(
     kinds: kinds.results,
     recent: recent.results,
     sources: sources.results,
+    ratings: ratings.results[0] ?? { avg: null, n: 0 },
     totals: totals.results[0] ?? { completed: 0, sessions: 0, turns: 0 },
   })
 }
@@ -295,6 +297,7 @@ async function load() {
     [t.completed + '（' + completion + '%）', '抵達結局'],
     [(modelRow.avg_latency || 0) + ' ms', '模型平均延遲'],
     [fallbacks, 'FALLBACK 回合'],
+    [(d.ratings && d.ratings.n) ? (d.ratings.avg + ' ★') : '—', '平均評分（' + ((d.ratings && d.ratings.n) || 0) + ' 人）'],
   ].map(([n, l]) => '<div class="card tile"><div class="num">' + n + '</div><div class="lbl">' + l + '</div></div>').join('');
 
   const funnelRows = sceneOrder

@@ -23,6 +23,7 @@ import {
   useInvestigationState,
 } from './InvestigationStateContext'
 import {
+  submitRating,
   requestKeeperTurn,
   requestNarrationAudio,
   type KeeperCheck,
@@ -388,6 +389,14 @@ export function InvestigationScene({
     reduceInvestigationState,
     setInvestigationState,
   } = useInvestigationState()
+  const [ratingValue, setRatingValue] = useState<number | null>(() => {
+    try {
+      const stored = window.localStorage.getItem('deep-records/rating-submitted')
+      return stored ? Number(stored) || null : null
+    } catch {
+      return null
+    }
+  })
   const [sceneStage, setSceneStage] = useState<SceneStage>(
     resume?.ui.sceneStage ?? 'prologue',
   )
@@ -966,6 +975,18 @@ export function InvestigationScene({
       }
   }
 
+  const handleRatingSelect = (value: number) => {
+    setRatingValue(value)
+
+    try {
+      window.localStorage.setItem('deep-records/rating-submitted', String(value))
+    } catch {
+      // 靜默略過
+    }
+
+    void submitRating(sessionIdRef.current, value)
+  }
+
   const handleActionSelect = (option: ActionOption) => {
     if (option.id === 'enter-apartment-from-prologue') {
       setMetaInputNotice(null)
@@ -1267,6 +1288,41 @@ export function InvestigationScene({
                 重新開始
               </button>
               <p className="ending-restart-note">從頭開始新的調查</p>
+              <section className="ending-rating" aria-label="為這場調查評分">
+                <p className="ending-rating-title">
+                  {ratingValue ? '感謝你的評價' : '為這場調查留下評價'}
+                </p>
+                <div className="ending-rating-stars" role="radiogroup">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const current = ratingValue ?? 0
+                    const fill =
+                      current >= star ? 'full' : current >= star - 0.5 ? 'half' : 'empty'
+
+                    return (
+                      <span className="rating-star" data-fill={fill} key={star}>
+                        <button
+                          aria-label={`${star - 0.5} 星`}
+                          className="rating-half left"
+                          type="button"
+                          onClick={() => handleRatingSelect(star - 0.5)}
+                        />
+                        <button
+                          aria-label={`${star} 星`}
+                          className="rating-half right"
+                          type="button"
+                          onClick={() => handleRatingSelect(star)}
+                        />
+                        <span aria-hidden="true" className="rating-star-glyph">
+                          ★
+                        </span>
+                      </span>
+                    )
+                  })}
+                </div>
+                {ratingValue ? (
+                  <p className="ending-rating-value">{ratingValue.toFixed(1)} ★</p>
+                ) : null}
+              </section>
               <section className="ending-collection" aria-label="結局圖鑑">
                 <p className="ending-collection-title">
                   已見證的結局　{unlockedEndings.length} / {allEndingIds.length}

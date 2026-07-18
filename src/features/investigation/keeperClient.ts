@@ -43,6 +43,21 @@ export async function requestNarrationAudio(
   return await response.blob()
 }
 
+// 遊戲結束後的星級評分（0.5–5，半星階）。失敗靜默——評分不該打擾結局時刻。
+export async function submitRating(sessionId: string, rating: number): Promise<boolean> {
+  try {
+    const response = await fetch(keeperEndpoint.replace(/\/keeper$/, '/rating'), {
+      body: JSON.stringify({ rating, sessionId }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    })
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 export async function requestKeeperTurn(
   playerAction: string,
   options: {
