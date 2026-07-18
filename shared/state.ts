@@ -16,9 +16,9 @@ export type CanonicalBelief = {
   verifiedMythRules: string[]
 }
 
-// 遊戲時鐘：7月15日深夜 01:17 開始，每回合前進 2 分鐘。
+// 遊戲時鐘：7月15日深夜 00:30 開始，每回合前進 2 分鐘。
 // 時間是劇情推進的觸發器之一（阿陽的到場時刻、儀式死線）。
-export const gameClockStartMinutes = 1 * 60 + 17
+export const gameClockStartMinutes = 0 * 60 + 30
 export const gameClockStepMinutes = 2
 
 export function formatGameClock(clockMinutes: number): string {

@@ -120,7 +120,7 @@ describe('canonicalFromWireState', () => {
 })
 
 describe('遊戲時鐘', () => {
-  it('每回合前進固定分鐘數；播種預設 01:17', () => {
+  it('每回合前進固定分鐘數；播種預設起始時刻', () => {
     const next = applyTurnEffects(baseState(), undefined, {})
     expect(next.clockMinutes).toBe(gameClockStartMinutes + gameClockStepMinutes)
     expect(canonicalFromWireState(undefined).clockMinutes).toBe(gameClockStartMinutes)
