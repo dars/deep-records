@@ -418,3 +418,55 @@ describe('五樓終局節奏', () => {
     expect(countRitualTurns({ flags: { fifth_floor_turn_1: true } })).toBe(1)
   })
 })
+
+describe('門邊互動的場景強制切換', () => {
+  const arrivedFlags = { officer_a_yang_arrived: true }
+
+  it('從臥室走向門口開門：場景強制切到客廳', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_bedroom',
+      '走向門口開門',
+      { id: 'answer-door-to-officer', label: '整理好身上的物品，走向門口應對' },
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+    expect(result?.forceSceneId).toBe('003_friend_apartment_livingroom')
+  })
+
+  it('已在客廳開門：不需要切場景', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_apartment_livingroom',
+      '開門',
+      undefined,
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+    expect(result?.forceSceneId).toBeUndefined()
+  })
+
+  it('從臥室隔著鐵門質問：切到客廳並記錄第一次未開門', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_bedroom',
+      '隔著鐵門，要求他出示證件',
+      { id: 'question-officer-through-door', label: '隔著鐵門，先確認對方的身分與來意' },
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    expect(result?.forceSceneId).toBe('003_friend_apartment_livingroom')
+  })
+
+  it('躲在臥室保持安靜：不切場景', () => {
+    const result = processOfficerDoorPhase(
+      '003_friend_bedroom',
+      '保持安靜，先不回應敲門聲',
+      undefined,
+      { flags: arrivedFlags },
+    )
+
+    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    expect(result?.forceSceneId).toBeUndefined()
+  })
+})

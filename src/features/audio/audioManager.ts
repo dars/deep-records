@@ -33,7 +33,7 @@ const sfxTracks = {
 export type SfxName = keyof typeof sfxTracks
 
 const defaultBgmVolume = 0.55
-const duckRatio = 0.22
+const duckRatio = 0.15
 const duckRampSeconds = 0.3
 const sfxVolume = 0.85
 const crossfadeMs = 2600

@@ -181,7 +181,21 @@ const insideApartmentScenes = new Set([
 export type OfficerDoorPhaseResult = {
   markFlags?: Record<string, boolean>
   preempt?: KeeperResponse
+  // 玩家走向大門與阿陽互動時，場景必須跟著切到客廳（大門所在地）。
+  forceSceneId?: string
 }
+
+const livingroomSceneId = '003_friend_apartment_livingroom'
+
+const engagesAtDoorActionIds = new Set([
+  'answer-door-to-officer',
+  'open-door-after-warning',
+  'question-officer-through-door',
+  'demand-officer-credentials',
+])
+
+const engagesAtDoorPattern =
+  /隔著(?:鐵|木|大)?門|走[向到]門|到門(?:口|邊|前)|門口|大門|應門|開門|去開|質問|確認.*(?:身分|來意)|要求.*證件|(?:警|警察|員警|阿陽).*(?:對話|說話|交談|回應|回話)/
 
 export function processOfficerDoorPhase(
   sceneId: string,
@@ -210,21 +224,29 @@ export function processOfficerDoorPhase(
     (selectedAction?.id === 'answer-door-to-officer' ||
       selectedAction?.id === 'open-door-after-warning' ||
       /開門|應門|打開(?:鐵|木|大)?門|讓他進|請他進|迎接|去開/.test(actionText))
+  // 大門在客廳：玩家從其他房間走向門口與阿陽互動時，場景必須切到客廳。
+  const engagesAtDoor =
+    !refusesToOpen &&
+    (opensDoor ||
+      (selectedAction ? engagesAtDoorActionIds.has(selectedAction.id) : false) ||
+      engagesAtDoorPattern.test(actionText))
+  const forceSceneId =
+    engagesAtDoor && sceneId !== livingroomSceneId ? livingroomSceneId : undefined
 
   if (opensDoor) {
     // 交給模型演開門後的問話；旗標讓狀態機停下、提醒模型他已在場。
-    return { markFlags: { officer_door_opened: true } }
+    return { forceSceneId, markFlags: { officer_door_opened: true } }
   }
 
   if (flags.officer_wait_one !== true) {
-    return { markFlags: { officer_wait_one: true } }
+    return { forceSceneId, markFlags: { officer_wait_one: true } }
   }
 
   if (flags.officer_knock_escalated !== true) {
-    return { preempt: buildEscalationResponse() }
+    return { forceSceneId, preempt: buildEscalationResponse() }
   }
 
-  return { preempt: buildKeyEntryResponse() }
+  return { forceSceneId, preempt: buildKeyEntryResponse() }
 }
 
 function buildEscalationResponse(): KeeperResponse {

@@ -48,7 +48,7 @@ type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-analytics-2026-07-18-9'
+const workerVersion = 'keeper-analytics-2026-07-18-10'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -246,6 +246,18 @@ async function handleKeeperTurn(
           ...response.effects?.setFlags,
           ...markFlags,
         },
+      },
+    }
+  }
+
+  // 玩家走向大門與阿陽互動：大門在客廳，場景強制切到客廳，
+  // 避免敘事已在門邊、畫面卻停在臥室等房間的錯位。
+  if (doorPhase?.forceSceneId) {
+    response = {
+      ...response,
+      effects: {
+        ...response.effects,
+        nextSceneId: doorPhase.forceSceneId,
       },
     }
   }
