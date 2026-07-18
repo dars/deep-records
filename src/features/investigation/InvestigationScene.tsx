@@ -653,6 +653,10 @@ export function InvestigationScene({
       audioManager.playSfx('doorIron')
     }
 
+    if (becameTrue('friend_apartment_door_broken')) {
+      audioManager.playSfx('doorBreak')
+    }
+
     // 權威狀態：Durable Object 路徑回傳完整快照，直接採用（server 的 reduce
     // 與本地實作是同一份 shared/state.ts）；無快照時退回本地 reduce。
     const serverState = response.state

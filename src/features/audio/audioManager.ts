@@ -26,6 +26,7 @@ const fallbackTrack = '/assets/music/ambient-drone-quiet-unease-continuous.mp3'
 
 const sfxTracks = {
   dice: '/assets/sfx/dice-roll.mp3',
+  doorBreak: '/assets/sfx/door-break.mp3',
   doorIron: '/assets/sfx/door-iron-open.mp3',
   doorKey: '/assets/sfx/door-key-entry.mp3',
   doorOpen: '/assets/sfx/door-open.mp3',

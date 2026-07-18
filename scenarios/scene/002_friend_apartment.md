@@ -36,6 +36,7 @@ references: [character_lin_xian_hong, character_landlord, item_friend_apartment_
 - 第一次使用鑰匙只開啟紅色鐵門，設定 `friend_apartment_iron_door_opened`。此時玩家位於公共樓梯間與木門之間，尚未進入住處，不觸發屋內腥味。
 - `friend_apartment_iron_door_opened` 已設定後，玩家再次使用另一把鑰匙才能開啟木門，設定 `friend_apartment_wooden_door_opened`，並觸發「屋內湧出的海水腥味」。
 - 不得在同一個泛稱「用鑰匙開門」行動裡連續開完兩道門；每一道門都是獨立一步，玩家在紅色鐵門開啟後仍可檢查木門、回頭或再使用第二把鑰匙。
+- 若玩家改以蠻力強制破壞任一道門（撞門、踹門、消防斧、破壞器材等，不透過鑰匙或正常開鎖），視為兩道門一次性被打開且損毀：設定 `friend_apartment_door_broken` 為 true（而非 `friend_apartment_iron_door_opened`／`friend_apartment_wooden_door_opened`），並照樣觸發「屋內湧出的海水腥味」事件。門損毀後不再能被關上或用來阻擋任何人進出，之後阿陽到場時會直接從破損的門洞走進屋內與玩家正面接觸，不會有敲門或等待的過程。
 - 在玩家實際開門以前，不得敘述住處內部的景象。
 - 玩家開門時，應先處理「屋內湧出的海水腥味」事件，再繼續描述住處內部。
 - 阿陽登場以前不得封死退路。玩家不論信念高低，都能循原路離開四樓並走出公寓。

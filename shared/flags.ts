@@ -36,6 +36,7 @@ export const systemFlags = [
   'called_a_hong_no_answer',
   'friend_apartment_iron_door_opened',
   'friend_apartment_wooden_door_opened',
+  'friend_apartment_door_broken',
   'friend_apartment_spare_key_found',
   'hidden_memory_card_found',
   'living_room_table_drawer_noise_heard',

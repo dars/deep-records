@@ -119,19 +119,22 @@ export function handleOfficerArrival(
   }
 
   const isInStairwell = sceneId === '002_friend_apartment'
+  // 玩家已把入口的門破壞（例如消防隊員撞門）：門不再能阻擋任何人，
+  // 阿陽到場時直接長驅直入，門外敲門／等待狀態機不適用。
+  const doorBroken = state?.flags?.friend_apartment_door_broken === true
   const disordered = isWireStateDisordered(state)
   const narration = callsPolice
-    ? buildCalledArrivalNarration(isInStairwell, disordered)
-    : buildScheduledArrivalNarration(isInStairwell, disordered)
+    ? buildCalledArrivalNarration(isInStairwell, disordered, doorBroken)
+    : buildScheduledArrivalNarration(isInStairwell, disordered, doorBroken)
 
   return {
-    actions: isInStairwell ? stairwellArrivalActions : doorKnockActions,
+    actions: isInStairwell || doorBroken ? stairwellArrivalActions : doorKnockActions,
     checks: [],
     effects: {
       setFlags: {
         officer_a_yang_arrived: true,
-        // 樓梯間登場沒有門相隔，視為直接正面接觸（門外流程不適用）。
-        ...(isInStairwell ? { officer_door_opened: true } : {}),
+        // 樓梯間登場沒有門相隔，或門已被破壞，視為直接正面接觸（門外流程不適用）。
+        ...(isInStairwell || doorBroken ? { officer_door_opened: true } : {}),
         ...(callsPolice ? { officer_called_by_player: true } : {}),
       },
     },
@@ -184,7 +187,20 @@ const stairwellArrivalActions: KeeperAction[] = [
 function buildScheduledArrivalNarration(
   isInStairwell: boolean,
   disordered: boolean,
+  doorBroken = false,
 ): string[] {
+  if (doorBroken) {
+    return disordered
+      ? [
+          '樓下傳來上樓的聲音，一階一階，卻在轉角前多停了半拍——像是先隔著那道破損的門洞確認了什麼，才繼續往上走。',
+          '玄關那扇被撞壞、斜倒在地的門什麼都擋不住了。腳步聲直接穿過門洞，制服的輪廓出現在破損的門框裡，視線毫不猶豫地落在你身上。「你好，我們接到鄰居反映……」那句話標準得像背出來的，可是他連看都沒看那扇壞掉的門一眼，彷彿它從一開始就不存在。',
+        ]
+      : [
+          '公共樓梯間傳來上樓的腳步聲，一階一階、不疾不徐，混著無線電短促的雜訊。玄關那扇被撞壞、斜倒在地的門完全擋不住視線與聲音。',
+          '腳步聲直接穿過破損的門框，一名體格精壯的制服員警出現在門洞前，視線一掃便直接落在你身上——沒有敲門，也沒有停頓。「你好，我們接到鄰居反映，說這裡一直傳出怪聲。」他的目光在斷裂的門板上停了一瞬，隨即若無其事地移回你臉上。',
+        ]
+  }
+
   if (disordered) {
     return isInStairwell
       ? [
@@ -213,19 +229,24 @@ function buildScheduledArrivalNarration(
 function buildCalledArrivalNarration(
   isInStairwell: boolean,
   disordered: boolean,
+  doorBroken = false,
 ): string[] {
   if (disordered) {
     return [
       '電話接通了。值班人員的聲音在雜訊裡忽遠忽近，你說著地址，卻越說越不確定自己報的數字對不對——電話那頭安靜得太徹底，像整個機房只有那一個聲音，而它只是在等你說完。',
-      isInStairwell
-        ? '掛斷後快得反常，樓梯間就響起腳步聲。制服的輪廓在轉角出現，朝你點頭，說是你報的案。可是你報案才過了幾分鐘？雨這麼大。他身上一滴水都沒有。'
-        : '掛斷後快得反常，門就被敲了三下。那個自稱警察的聲音說：剛才是這裡報的案吧。你盯著門，突然想不起來——你剛才報案的時候，說過門牌號碼嗎？',
+      doorBroken
+        ? '掛斷後快得反常，樓梯間就響起腳步聲。玄關那扇被撞壞、斜倒在地的門什麼都擋不住——制服的輪廓直接穿過破損的門洞出現在你面前，說是你報的案。可是你報案才過了幾分鐘？他連看都沒看那扇壞掉的門一眼。'
+        : isInStairwell
+          ? '掛斷後快得反常，樓梯間就響起腳步聲。制服的輪廓在轉角出現，朝你點頭，說是你報的案。可是你報案才過了幾分鐘？雨這麼大。他身上一滴水都沒有。'
+          : '掛斷後快得反常，門就被敲了三下。那個自稱警察的聲音說：剛才是這裡報的案吧。你盯著門，突然想不起來——你剛才報案的時候，說過門牌號碼嗎？',
     ]
   }
 
-  const arrival = isInStairwell
-    ? '掛斷後不到幾分鐘，樓梯間就響起上樓的腳步聲。一名體格精壯的制服員警在轉角出現，朝你點了點頭：「是你報的案吧？我是轄區的，姓楊。說說看，什麼狀況？」'
-    : '掛斷後不到幾分鐘，公共樓梯間就響起腳步聲，接著鐵門被敲了三下。門外是個平穩的男聲：「警察，剛才是這裡報的案吧？麻煩開個門。」'
+  const arrival = doorBroken
+    ? '掛斷後不到幾分鐘，樓梯間就響起上樓的腳步聲。玄關那扇被撞壞、斜倒在地的門完全擋不住視線——一名體格精壯的制服員警直接從破損的門洞走進來，視線落在你身上：「是你報的案吧？我是轄區的，姓楊。說說看，什麼狀況？」他的目光在斷裂的門板上停了一瞬，沒多問，逕自收回視線。'
+    : isInStairwell
+      ? '掛斷後不到幾分鐘，樓梯間就響起上樓的腳步聲。一名體格精壯的制服員警在轉角出現，朝你點了點頭：「是你報的案吧？我是轄區的，姓楊。說說看，什麼狀況？」'
+      : '掛斷後不到幾分鐘，公共樓梯間就響起腳步聲，接著鐵門被敲了三下。門外是個平穩的男聲：「警察，剛才是這裡報的案吧？麻煩開個門。」'
 
   return [
     '電話接通，值班人員以制式的語氣記下你的位置與描述，要你留在原地等候。通話結束後，雨聲重新填滿屋內的安靜。',

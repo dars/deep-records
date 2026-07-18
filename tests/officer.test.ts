@@ -111,6 +111,23 @@ describe('handleOfficerArrival', () => {
     expect(response?.narration.join('')).toContain('樓梯間')
     expect(response?.narration.join('')).not.toContain('敲了三下，力道規律')
   })
+
+  it('門已被破壞時直接正面接觸，跳過敲門流程並設下 officer_door_opened', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '繼續調查沙發',
+      undefined,
+      {
+        ...threeMilestonesState,
+        flags: { ...threeMilestonesState.flags, friend_apartment_door_broken: true },
+      },
+    )
+
+    expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
+    expect(response?.effects?.setFlags?.officer_door_opened).toBe(true)
+    expect(response?.narration.join('')).toContain('破損')
+    expect(response?.narration.join('')).not.toContain('敲了三下')
+  })
 })
 
 describe('阿陽登場後的封鎖', () => {
