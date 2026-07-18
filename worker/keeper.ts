@@ -98,7 +98,7 @@ async function readRuntimeConfig(env: Env): Promise<KeeperRuntimeConfig> {
   }
 }
 
-const workerVersion = 'keeper-session-2026-07-18-38'
+const workerVersion = 'keeper-session-2026-07-18-39'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。

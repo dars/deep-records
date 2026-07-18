@@ -242,7 +242,7 @@ async function generateGeminiText(
   let activeModel = model
   // 一般錯誤最多重試一次；thinkingConfig 欄位不相容的降級重試另計（最多兩次）；
   // 出口地區被拒的重試另計（最多四次，每次換出口 IP 的機會）。
-  const maxLocationRetries = 4
+  const maxLocationRetries = 6
   const maxAttempts = 2 + 2 + maxLocationRetries
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
