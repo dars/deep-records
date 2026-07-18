@@ -7,7 +7,11 @@ import VolumeUp from 'react-iconly/dist/Icons/VolumeUp'
 import { playerRecord, recordTabs, type RecordTab } from '../data/playerRecord'
 import { useInvestigationState } from '../features/investigation/InvestigationStateContext'
 import type { InvestigationState } from '../types/investigation'
-import { formatGameClock, gameClockStartMinutes } from '../../shared/state'
+import {
+  formatGameClock,
+  gameClockStartMinutes,
+  isSanityDisordered,
+} from '../../shared/state'
 
 export type ItemRevealRecord = {
   id: string
@@ -176,11 +180,57 @@ function buildInvestigationLogs(investigationState: InvestigationState) {
   return [...sceneLogs, beliefLog]
 }
 
+// 失序時鐘：時間感崩壞——顯示的時刻不規律地胡亂跳動（與玩家操作無關），
+// 偶爾出現不可能的時刻（分鐘超過 59、白日的鐘點）。權威時鐘在 server 不受影響。
+function buildGlitchedClock(): string {
+  const roll = Math.random()
+  const period = Math.random() < 0.8 ? '深夜' : '凌晨'
+  const hour =
+    roll < 0.68
+      ? 1 + Math.floor(Math.random() * 3)
+      : roll < 0.86
+        ? 5 + Math.floor(Math.random() * 7)
+        : 25
+  const minute =
+    Math.random() < 0.82
+      ? Math.floor(Math.random() * 60)
+      : 60 + Math.floor(Math.random() * 39)
+
+  return `${period} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
 export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
   const { investigationState } = useInvestigationState()
   const clockLabel = formatGameClock(
     investigationState.clockMinutes ?? gameClockStartMinutes,
   )
+  const isClockDisordered = isSanityDisordered(investigationState.sanity)
+  const [glitchedLabel, setGlitchedLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isClockDisordered) {
+      setGlitchedLabel(null)
+      return
+    }
+
+    let cancelled = false
+    let timer = 0
+    const tick = () => {
+      if (cancelled) {
+        return
+      }
+
+      setGlitchedLabel(buildGlitchedClock())
+      timer = window.setTimeout(tick, 220 + Math.random() * 1100)
+    }
+
+    tick()
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [isClockDisordered])
   const { investigator } = investigationState
   const [isCharacterOpen, setIsCharacterOpen] = useState(false)
   const [isCharacterClosing, setIsCharacterClosing] = useState(false)
@@ -315,7 +365,13 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
           <div className="title-rule" aria-hidden="true">
             <span />
           </div>
-          <p className="scene-meta">7月15日　{clockLabel}　☁</p>
+          <p className="scene-meta">
+            7月15日　
+            <span className={isClockDisordered ? 'clock-glitch' : undefined}>
+              {glitchedLabel ?? clockLabel}
+            </span>
+            　☁
+          </p>
         </header>
         {children({ showItemReveal })}
         {isMenuOpen && (

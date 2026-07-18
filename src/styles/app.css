@@ -1082,6 +1082,20 @@
   padding: var(--space-2);
 }
 
+/* 失序時鐘：紅色光暈、不安定的脈動。 */
+.clock-glitch {
+  display: inline-block;
+  color: rgba(255, 126, 112, 0.92);
+  text-shadow: 0 0 8px rgba(255, 42, 28, 0.55);
+  animation: clock-glitch-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes clock-glitch-pulse {
+  0%, 100% { text-shadow: 0 0 6px rgba(255, 42, 28, 0.45); opacity: 1; }
+  45% { text-shadow: 0 0 16px rgba(255, 42, 28, 0.85); opacity: 0.82; }
+  55% { text-shadow: 0 0 12px rgba(255, 42, 28, 0.7); opacity: 0.95; }
+}
+
 /* 失序狀態：自由輸入收起後的替代提示。 */
 .disordered-note {
   margin: 0.4rem 0 0;
