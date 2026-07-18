@@ -39,7 +39,13 @@ export class KeeperSession {
       )
     }
 
-    const seeded = stored ?? canonicalFromWireState(body.state)
+    const loaded = stored
+    // 時鐘功能上線前建立的會期沒有 clockMinutes：以回合序推估補值。
+    if (loaded && !Number.isFinite(loaded.clockMinutes)) {
+      loaded.clockMinutes = 77 + (body.turnIndex ?? 0) * 4
+    }
+
+    const seeded = loaded ?? canonicalFromWireState(body.state)
     // 楔子出口是前端驅動的固定轉換（resolveRequestSceneId 的特例）：
     // 這是唯一允許 client 主張場景的情況，其餘一律以 server 為準。
     const claimsPrologueExit =

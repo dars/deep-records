@@ -134,8 +134,21 @@ export async function callGeminiKeeper(
   let modelUsed = model
 
   // 解析失敗時重新取樣一次（截斷或格式錯誤通常是偶發），仍失敗才交給 fallback。
+  // 連線層錯誤（重試耗盡、逾時）也不外拋——回 undefined 讓回合降級成
+  // 罐頭敘事，玩家看到的是遊戲內文字而不是錯誤畫面。
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const generated = await generateGeminiText(env, prompt, model)
+    let generated: { modelUsed: string; text: string }
+
+    try {
+      generated = await generateGeminiText(env, prompt, model)
+    } catch (error) {
+      console.error(
+        'keeper_model_unreachable',
+        error instanceof Error ? error.message : error,
+      )
+      return { modelUsed, response: undefined }
+    }
+
     modelUsed = generated.modelUsed
 
     try {

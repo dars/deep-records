@@ -126,6 +126,12 @@ describe('遊戲時鐘', () => {
     expect(canonicalFromWireState(undefined).clockMinutes).toBe(gameClockStartMinutes)
   })
 
+  it('時鐘缺值（舊會期）不產生 NaN，回退起始時刻', () => {
+    const legacy = { ...baseState(), clockMinutes: Number.NaN }
+    const next = applyTurnEffects(legacy, undefined, {})
+    expect(next.clockMinutes).toBe(gameClockStartMinutes + gameClockStepMinutes)
+  })
+
   it('腳本指定的耗時覆蓋預設值', () => {
     const next = applyTurnEffects(baseState(), undefined, { timeCostMinutes: 10 })
     expect(next.clockMinutes).toBe(gameClockStartMinutes + 10)
