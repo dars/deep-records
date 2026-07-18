@@ -359,8 +359,17 @@ function buildSanityReminder(state?: KeeperWireState) {
   const checkedFlags = Object.entries(state.flags ?? {})
     .filter(([key, value]) => value && key.startsWith('san_checked_'))
     .map(([key]) => key)
+  const disorderTakeover =
+    loss >= 6
+      ? `- **失序接管**：玩家已陷入瘋狂，失去自主行動能力。actions 全部必須是瘋狂驅動的行為——強迫性的舉動、服從幻覺與低語、對符號或聲音的執念、自我傷害邊緣的衝動、不受控的笑或喃喃自語。絕對不得提供冷靜、理性、有條理的調查或對話選項。
+- 敘事口吻改為「身體自行行動、意識在旁觀看」：角色的手先動了，玩家（意識）只能看著。每一回合的瘋狂程度應比上一回合更深，整體弧線走向毀滅，不得回穩。
+- 選項之間的差異只在「哪一種失控」，沒有任何一個選項能讓角色恢復理智或脫離處境。
+`
+      : ''
 
   return `## SAN 事件執行提醒（每回合必讀）
+
+${disorderTakeover}
 
 - 目前敘事層級：${tier}（累計損失 ${loss} 點）。敘事的主觀感知必須符合「SAN 與精神衝擊規則」中此層級的描述；事件表中標注其他層級的內容不得出現。
 - 檢查本回合玩家行動是否命中「SAN 與精神衝擊規則」的 Demo SAN 事件表。若命中，必須在 effects.sanityCheck 回報，例如 {"spec": "0/1", "eventFlag": "san_checked_black_residue"}；固定損失用相同值，例如 {"spec": "1/1", "eventFlag": "..."}。

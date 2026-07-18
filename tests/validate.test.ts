@@ -178,3 +178,32 @@ describe('removeRepeatedActions', () => {
     expect(response.actions).toHaveLength(1)
   })
 })
+
+describe('失序保底選項', () => {
+  it('失序玩家的保底選項只能是失控行為', () => {
+    const validated = ensureAvailableActions(
+      { actions: [], checks: [], narration: ['……'] },
+      '003_friend_bedroom',
+      '發呆',
+      { sanity: { current: 45, lostToday: 7, starting: 55 } },
+    )
+
+    expect(validated.actions.map((a) => a.id)).toEqual([
+      'disorder-follow-the-sound',
+      'disorder-trace-the-marks',
+    ])
+  })
+
+  it('穩定玩家維持一般保底', () => {
+    const validated = ensureAvailableActions(
+      { actions: [], checks: [], narration: ['……'] },
+      '003_friend_bedroom',
+      '發呆',
+      { sanity: { current: 54, lostToday: 1, starting: 55 } },
+    )
+
+    expect(validated.actions.map((a) => a.id)).not.toContain(
+      'disorder-follow-the-sound',
+    )
+  })
+})

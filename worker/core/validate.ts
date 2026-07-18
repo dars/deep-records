@@ -7,6 +7,7 @@ import type {
   KeeperResponse,
   KeeperWireState,
 } from '../../shared/keeper'
+import { sanityDisorderThreshold } from '../../shared/state'
 import {
   idolInspectionFallbackActions,
   officerPresenceFallbackActions,
@@ -155,9 +156,35 @@ export function ensureAvailableActions(
 
   return {
     ...response,
-    actions: sceneFallbackActions[sceneId] ?? genericFallbackActions,
+    actions: isDisordered(state)
+      ? disorderFallbackActions
+      : (sceneFallbackActions[sceneId] ?? genericFallbackActions),
   }
 }
+
+function isDisordered(state?: KeeperWireState): boolean {
+  const sanity = state?.sanity
+
+  if (typeof sanity !== 'object' || sanity === null) {
+    return false
+  }
+
+  return (sanity.lostToday ?? 0) >= sanityDisorderThreshold
+}
+
+// 失序保底：瘋狂中的玩家連保底選項都只能是失控的形狀。
+const disorderFallbackActions: KeeperAction[] = [
+  {
+    beliefSignal: 'none',
+    id: 'disorder-follow-the-sound',
+    label: '任由雙腳帶著你，走向那個聲音的來源',
+  },
+  {
+    beliefSignal: 'none',
+    id: 'disorder-trace-the-marks',
+    label: '蹲下來，用指甲沿著地板的紋路一遍遍描摹',
+  },
+]
 
 // 最後保底：任何非楔子、非結局回合都不得出現零選項。
 const genericFallbackActions: KeeperAction[] = [
