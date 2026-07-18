@@ -548,7 +548,7 @@ export function handleScriptedInvestigation(
         nextSceneId: '003_friend_apartment_livingroom',
         sanityDelta:
           stenchCheck && stenchCheck.delta !== 0 ? stenchCheck.delta : undefined,
-        timeCostMinutes: 6,
+        timeCostMinutes: 4,
         setFlags: {
           friend_apartment_wooden_door_opened: true,
           ...(stenchCheck ? { san_checked_seawater_stench: true } : {}),
