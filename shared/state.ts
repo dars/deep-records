@@ -169,3 +169,11 @@ export function isCanonicalGameState(value: unknown): value is CanonicalGameStat
     Array.isArray(candidate.inventory)
   )
 }
+
+// 失序門檻（sanity-rules.md 的累計損失分層：穩定 0–2／動搖 3–5／失序 ≥6）。
+// 失序後玩家失去自主行動能力：前端收起自由輸入框，只能在浮現的選項中選擇。
+export const sanityDisorderThreshold = 6
+
+export function isSanityDisordered(sanity: { lostToday: number }): boolean {
+  return sanity.lostToday >= sanityDisorderThreshold
+}

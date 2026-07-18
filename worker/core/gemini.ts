@@ -98,7 +98,6 @@ const keeperResponseSchema = {
           },
           required: ['spec', 'eventFlag'],
         },
-        sanityDelta: { type: 'INTEGER' },
         hitPointDelta: { type: 'INTEGER' },
         addInventory: { type: 'ARRAY', items: { type: 'STRING' } },
         removeInventory: { type: 'ARRAY', items: { type: 'STRING' } },

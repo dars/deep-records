@@ -174,3 +174,12 @@ describe('開木門的腳本 SAN 事件', () => {
     expect(response?.effects?.setFlags?.san_checked_seawater_stench).toBeUndefined()
   })
 })
+
+import { isSanityDisordered, sanityDisorderThreshold } from '../shared/state'
+
+describe('失序門檻', () => {
+  it('累計損失達門檻即失序（自由輸入收起的依據）', () => {
+    expect(isSanityDisordered({ lostToday: sanityDisorderThreshold })).toBe(true)
+    expect(isSanityDisordered({ lostToday: sanityDisorderThreshold - 1 })).toBe(false)
+  })
+})

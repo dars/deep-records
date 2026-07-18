@@ -17,6 +17,7 @@ import Search from 'react-iconly/dist/Icons/Search'
 import type { TurnHistoryEntry } from '../../../shared/keeper'
 import { audioManager, resolveBgmMood } from '../audio/audioManager'
 import { endingIds } from '../../generated/registry'
+import { isSanityDisordered } from '../../../shared/state'
 import {
   addVisitedScene,
   useInvestigationState,
@@ -436,12 +437,15 @@ export function InvestigationScene({
     !keeperError &&
     !isKeeperThinking &&
     !isDiceOverlayActive
+  // 失序後玩家失去自主行動能力：自由輸入框收起，只能在浮現的選項中選擇。
+  const isDisordered = isSanityDisordered(investigationState.sanity)
   const canShowFreeAction =
     !investigationState.ending &&
     !keeperError &&
     !isKeeperThinking &&
     !isDiceOverlayActive &&
     sceneStage !== 'prologue' &&
+    !isDisordered &&
     (!hasPendingCheck || hasActionOptions)
 
   const sceneImageUrl =
@@ -1313,6 +1317,12 @@ export function InvestigationScene({
               </button>
             ))}
           </div>
+        )}
+
+        {isDisordered && !investigationState.ending && !isKeeperThinking && (
+          <p className="disordered-note" aria-live="polite">
+            你的手指不再完全聽你使喚。此刻能做的，只剩下那些自己浮上來的念頭。
+          </p>
         )}
 
         {canShowFreeAction && (
