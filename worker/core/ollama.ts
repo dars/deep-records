@@ -107,8 +107,9 @@ const defaultTimeoutMs = 90_000
 export async function callOllamaKeeper(
   env: OllamaEnv,
   prompt: string,
+  modelOverride?: string,
 ): Promise<OllamaKeeperResult> {
-  const model = env.OLLAMA_MODEL ?? 'qwen3:8b'
+  const model = modelOverride ?? env.OLLAMA_MODEL ?? 'qwen3:8b'
   const modelUsed = `ollama/${model}`
 
   if (!env.OLLAMA_URL) {

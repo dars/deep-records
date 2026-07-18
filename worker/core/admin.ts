@@ -154,6 +154,11 @@ h2 { font-size: 12px; letter-spacing: 0.18em; color: var(--ink-2); font-weight: 
 .tile .lbl { color: var(--ink-3); font-size: 11px; letter-spacing: 0.14em; margin-top: 2px; }
 .bars { display: grid; gap: 8px; }
 .bar-row { display: grid; grid-template-columns: 150px 1fr 48px; gap: 10px; align-items: center; }
+.provider-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.provider-row button { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.provider-row button.active { background: var(--accent-soft); border-color: var(--accent); }
+.provider-row input { flex: 1; min-width: 160px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+.hint { color: var(--ink-3); font-size: 12px; margin: 4px 0 0; }
 .bar-row .lbl { color: var(--ink-2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-track { height: 14px; border-radius: 4px; background: rgba(255,255,255,0.03); overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 0 4px 4px 0; background: linear-gradient(90deg, var(--accent-soft), var(--accent)); min-width: 2px; }
@@ -195,6 +200,16 @@ a.back { color: var(--accent); font-size: 12px; cursor: pointer; text-decoration
     <div class="card"><h2>結局分佈</h2><div class="bars" id="endings"></div></div>
     <div class="card"><h2>行動類型</h2><div class="bars" id="kinds"></div></div>
     <div class="card"><h2>回應來源與延遲</h2><table id="sources"></table></div>
+    <div class="card" id="provider-card">
+      <h2>模型供應商（即時切換）</h2>
+      <p class="mono" id="provider-now">讀取中……</p>
+      <div class="provider-row">
+        <button type="button" id="btn-gemini">Gemini</button>
+        <button type="button" id="btn-ollama">Ollama</button>
+        <input id="ollama-model" type="text" placeholder="ollama 模型（qwen3:8b）" />
+      </div>
+      <p class="hint">KV 覆寫 wrangler var；全球生效約一分鐘內。Ollama 失敗自動退回 Gemini。</p>
+    </div>
     <div class="card" id="sessions-card"><h2>最近 SESSION（點擊回放）</h2><table id="sessions"></table></div>
     <div class="card" id="replay-card" hidden>
       <h2>SESSION 回放 <a class="back" id="back">← 返回列表</a></h2>
@@ -218,6 +233,34 @@ const endingNames = {
 };
 const kindNames = { option:'點選選項', free_text:'自由輸入', check_result:'擲骰回報', system:'系統回合' };
 let adminKey = localStorage.getItem('dr-admin-key') || '';
+
+async function loadProviderConfig() {
+  try {
+    const res = await fetch('/api/admin/config', { headers: { 'x-admin-key': adminKey } });
+    if (!res.ok) return;
+    const c = await res.json();
+    document.getElementById('provider-now').textContent =
+      '目前：' + c.effectiveProvider + (c.effectiveProvider === 'ollama' ? '（' + (c.kv.ollamaModel || c.varOllamaModel) + '）' : '') +
+      '　來源：' + (c.kv.provider ? 'KV 覆寫' : 'wrangler var');
+    document.getElementById('btn-gemini').classList.toggle('active', c.effectiveProvider === 'gemini');
+    document.getElementById('btn-ollama').classList.toggle('active', c.effectiveProvider === 'ollama');
+    const input = document.getElementById('ollama-model');
+    if (!input.value) input.value = c.kv.ollamaModel || c.varOllamaModel || '';
+  } catch {}
+}
+
+async function setProvider(provider) {
+  const model = document.getElementById('ollama-model').value.trim();
+  await fetch('/api/admin/config', {
+    method: 'POST',
+    headers: { 'x-admin-key': adminKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, ollamaModel: model || undefined }),
+  });
+  loadProviderConfig();
+}
+
+document.getElementById('btn-gemini').addEventListener('click', () => setProvider('gemini'));
+document.getElementById('btn-ollama').addEventListener('click', () => setProvider('ollama'));
 
 async function api(path) {
   const res = await fetch(path, { headers: { 'x-admin-key': adminKey } });
@@ -312,6 +355,7 @@ async function tryEnter() {
     await api('/api/admin/stats');
     localStorage.setItem('dr-admin-key', adminKey);
     document.getElementById('gate').hidden = true;
+    loadProviderConfig();
     document.getElementById('app').hidden = false;
     load();
   } catch {

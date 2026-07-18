@@ -69,10 +69,34 @@ export type Env = {
   OLLAMA_URL?: string
   KEEPER_RATE_LIMITER?: RateLimiter
   KEEPER_SESSION?: DurableObjectNamespace
+  TTS_CACHE?: KVNamespace
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-31'
+// 執行期供應商設定（KV 覆寫 > wrangler.toml var）：/admin 面板可即時切換免部署。
+// KV 為最終一致，全球生效約需一分鐘內。
+export type KeeperRuntimeConfig = {
+  ollamaModel?: string
+  provider?: string
+}
+
+const runtimeConfigKey = 'config:keeper'
+
+async function readRuntimeConfig(env: Env): Promise<KeeperRuntimeConfig> {
+  if (!env.TTS_CACHE) {
+    return {}
+  }
+
+  try {
+    const raw = await env.TTS_CACHE.get(runtimeConfigKey, 'json')
+
+    return (raw as KeeperRuntimeConfig | null) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+const workerVersion = 'keeper-session-2026-07-18-32'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -106,14 +130,19 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname === '/health') {
+      const config = await readRuntimeConfig(env)
+      const provider =
+        (config.provider ?? env.KEEPER_PROVIDER) === 'ollama' ? 'ollama' : 'gemini'
+
       return json(
         {
           climaxModel: env.GEMINI_CLIMAX_MODEL ?? null,
           model: geminiModel,
           ok: true,
-          provider: env.KEEPER_PROVIDER === 'ollama' ? 'ollama' : 'gemini',
-          ...(env.KEEPER_PROVIDER === 'ollama'
-            ? { ollamaModel: env.OLLAMA_MODEL ?? 'qwen3:8b' }
+          provider,
+          providerSource: config.provider ? 'kv' : 'var',
+          ...(provider === 'ollama'
+            ? { ollamaModel: config.ollamaModel ?? env.OLLAMA_MODEL ?? 'qwen3:8b' }
             : {}),
           version: workerVersion,
         },
@@ -132,6 +161,41 @@ export default {
 
     if (url.pathname === '/api/admin/session') {
       return handleAdminSession(request, env)
+    }
+
+    // 執行期供應商設定：GET 讀取、POST 寫入（KV，免部署即時切換）。
+    if (url.pathname === '/api/admin/config') {
+      if (!isAuthorized(request, env)) {
+        return json({ error: 'unauthorized' }, 401)
+      }
+
+      if (request.method === 'POST') {
+        if (!env.TTS_CACHE) {
+          return json({ error: 'kv_unavailable' }, 500)
+        }
+
+        const body = (await request.json().catch(() => ({}))) as KeeperRuntimeConfig
+        const provider = body.provider === 'ollama' ? 'ollama' : 'gemini'
+        const config: KeeperRuntimeConfig = {
+          provider,
+          ...(typeof body.ollamaModel === 'string' && body.ollamaModel.trim()
+            ? { ollamaModel: body.ollamaModel.trim() }
+            : {}),
+        }
+        await env.TTS_CACHE.put(runtimeConfigKey, JSON.stringify(config))
+
+        return json({ ok: true, ...config })
+      }
+
+      const config = await readRuntimeConfig(env)
+
+      return json({
+        effectiveProvider:
+          (config.provider ?? env.KEEPER_PROVIDER) === 'ollama' ? 'ollama' : 'gemini',
+        kv: config,
+        varDefault: env.KEEPER_PROVIDER === 'ollama' ? 'ollama' : 'gemini',
+        varOllamaModel: env.OLLAMA_MODEL ?? 'qwen3:8b',
+      })
     }
 
     // 列出目前金鑰可用的 Gemini 模型（挑選混合路由高階模型用）。
@@ -441,11 +505,14 @@ async function runModelTurn(
   })
   // 供應商切換（實驗）：Ollama 模式下所有模型回合走本機模型，
   // 失敗（連線、逾時、解析）自動退回 Gemini，遊戲不中斷。
+  // KV 執行期設定優先於 wrangler var（/admin 可免部署切換）。
+  const runtimeConfig = await readRuntimeConfig(env)
+  const effectiveProvider = runtimeConfig.provider ?? env.KEEPER_PROVIDER
   let modelResponse: KeeperResponse | undefined
   let usedModel: string
 
-  if (env.KEEPER_PROVIDER === 'ollama' && env.OLLAMA_URL) {
-    const ollamaResult = await callOllamaKeeper(env, prompt)
+  if (effectiveProvider === 'ollama' && env.OLLAMA_URL) {
+    const ollamaResult = await callOllamaKeeper(env, prompt, runtimeConfig.ollamaModel)
     modelResponse = ollamaResult.response
     usedModel = ollamaResult.modelUsed
 
