@@ -43,3 +43,5 @@ database_id = "255353e6-6fa1-4755-8846-6eba19949747"
 # ElevenLabs 語音與模型；換聲音／模型改這裡即可。
 ELEVENLABS_VOICE_ID = "kbrsaic1zriFXx1pgRYN"
 ELEVENLABS_MODEL_ID = "eleven_v3"
+# 五樓／強制高潮回合改用的高階模型；刪除此行即可停用混合路由。
+GEMINI_CLIMAX_MODEL = "gemini-3.1-pro-preview"

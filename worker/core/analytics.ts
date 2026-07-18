@@ -44,6 +44,7 @@ export function logTurnEvent(
     beliefStage: string
     body: KeeperRequestBody
     latencyMs: number
+    model: string | null
     response: KeeperResponse
     sceneId: string
     source: TurnSource
@@ -63,8 +64,8 @@ export function logTurnEvent(
     `INSERT INTO turn_events
       (session_id, turn_index, ts, scene_id, action_kind, player_action,
        selected_action_id, turn_source, belief_stage, sanity, ending_id,
-       latency_ms, occupation)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       latency_ms, occupation, model)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       body.sessionId,
@@ -80,6 +81,7 @@ export function logTurnEvent(
       response.effects?.endingId ?? null,
       input.latencyMs,
       body.character?.occupation ?? null,
+      input.model,
     )
     .run()
     .catch((error: unknown) => {

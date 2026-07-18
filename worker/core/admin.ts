@@ -5,7 +5,7 @@ type AdminEnv = {
   ANALYTICS_DB?: D1Database
 }
 
-function isAuthorized(request: Request, env: AdminEnv): boolean {
+export function isAuthorized(request: Request, env: AdminEnv): boolean {
   if (!env.ADMIN_KEY) {
     return false
   }
@@ -57,8 +57,8 @@ export async function handleAdminStats(
          FROM turn_events GROUP BY action_kind ORDER BY n DESC`,
     ),
     db.prepare(
-      `SELECT turn_source, COUNT(*) AS n, CAST(AVG(latency_ms) AS INTEGER) AS avg_latency
-         FROM turn_events GROUP BY turn_source ORDER BY n DESC`,
+      `SELECT turn_source, model, COUNT(*) AS n, CAST(AVG(latency_ms) AS INTEGER) AS avg_latency
+         FROM turn_events GROUP BY turn_source, model ORDER BY n DESC`,
     ),
     db.prepare(
       `SELECT session_id,
@@ -102,7 +102,7 @@ export async function handleAdminSession(
   const { results } = await env.ANALYTICS_DB.prepare(
     `SELECT turn_index, ts, scene_id, action_kind, player_action,
             selected_action_id, turn_source, belief_stage, sanity,
-            ending_id, latency_ms
+            ending_id, latency_ms, model
        FROM turn_events WHERE session_id = ? ORDER BY turn_index, ts`,
   )
     .bind(sessionId)
@@ -262,9 +262,10 @@ async function load() {
   bars(document.getElementById('kinds'), d.kinds, r => kindNames[r.action_kind] || r.action_kind);
 
   document.getElementById('sources').innerHTML =
-    '<tr><th>來源</th><th>回合數</th><th>平均延遲</th></tr>' +
+    '<tr><th>來源</th><th>模型</th><th>回合數</th><th>平均延遲</th></tr>' +
     d.sources.map(s =>
       '<tr><td>' + (s.turn_source === 'fallback' ? '<span class="pill warn">fallback</span>' : s.turn_source) + '</td>' +
+      '<td>' + (s.model || '—') + '</td>' +
       '<td>' + s.n + '</td><td>' + (s.avg_latency || 0) + ' ms</td></tr>'
     ).join('');
 
@@ -292,6 +293,7 @@ async function replay(id) {
     '<div class="turn">' +
     '<div class="meta">#' + t.turn_index + '　' + (sceneNames[t.scene_id] || t.scene_id) +
     '　' + (kindNames[t.action_kind] || t.action_kind) + '　' + t.turn_source +
+    (t.model ? '　' + t.model : '') +
     (t.latency_ms ? '　' + t.latency_ms + 'ms' : '') +
     '　SAN ' + (t.sanity ?? '—') + '　' + t.belief_stage +
     (t.ending_id ? '　→ ' + (endingNames[t.ending_id] || t.ending_id) : '') + '</div>' +

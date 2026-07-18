@@ -15,6 +15,7 @@ import {
   handleAdminPage,
   handleAdminSession,
   handleAdminStats,
+  isAuthorized,
 } from './core/admin'
 import { logTurnEvent, type TurnSource } from './core/analytics'
 import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
@@ -44,11 +45,13 @@ type Env = {
   ELEVENLABS_API_KEY?: string
   ELEVENLABS_VOICE_ID?: string
   GEMINI_API_KEY: string
+  // 混合路由：五樓／強制高潮回合改用的高階模型；未設定時全程使用預設模型。
+  GEMINI_CLIMAX_MODEL?: string
   KEEPER_RATE_LIMITER?: RateLimiter
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-analytics-2026-07-18-10'
+const workerVersion = 'keeper-analytics-2026-07-18-14'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -82,7 +85,16 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname === '/health') {
-      return json({ model: geminiModel, ok: true, version: workerVersion }, 200, corsHeaders)
+      return json(
+        {
+          climaxModel: env.GEMINI_CLIMAX_MODEL ?? null,
+          model: geminiModel,
+          ok: true,
+          version: workerVersion,
+        },
+        200,
+        corsHeaders,
+      )
     }
 
     if (url.pathname === '/admin') {
@@ -95,6 +107,26 @@ export default {
 
     if (url.pathname === '/api/admin/session') {
       return handleAdminSession(request, env)
+    }
+
+    // 列出目前金鑰可用的 Gemini 模型（挑選混合路由高階模型用）。
+    if (url.pathname === '/api/admin/models') {
+      if (!isAuthorized(request, env)) {
+        return json({ error: 'unauthorized' }, 401)
+      }
+
+      const listResponse = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models?pageSize=100',
+        { headers: { 'x-goog-api-key': env.GEMINI_API_KEY } },
+      )
+      const data = await listResponse.json<{ models?: Array<{ name?: string }> }>()
+
+      return json({
+        models: (data.models ?? [])
+          .map((m) => (m.name ?? '').replace('models/', ''))
+          .filter(Boolean)
+          .sort(),
+      })
     }
 
     if (url.pathname === '/api/tts') {
@@ -227,12 +259,15 @@ async function handleKeeperTurn(
     }
   }
 
+  let turnModel: string | null = null
+
   if (!response) {
     const startedAt = Date.now()
     const modelTurn = await runModelTurn(body, sceneId, playerAction, env)
     latencyMs = Date.now() - startedAt
     response = modelTurn.response
     turnSource = modelTurn.source
+    turnModel = modelTurn.model
   }
 
   const markFlags = { ...doorPhase?.markFlags, ...ritualPacing?.markFlags }
@@ -289,6 +324,7 @@ async function handleKeeperTurn(
     beliefStage: beliefUpdate.stage,
     body,
     latencyMs,
+    model: turnModel,
     response: validated,
     sceneId,
     source: turnSource,
@@ -302,7 +338,7 @@ async function runModelTurn(
   sceneId: string,
   playerAction: string,
   env: Env,
-): Promise<{ response: KeeperResponse; source: TurnSource }> {
+): Promise<{ model: string; response: KeeperResponse; source: TurnSource }> {
   const prompt = buildPrompt({
     character: body.character,
     checkResults: body.checkResults,
@@ -313,7 +349,15 @@ async function runModelTurn(
     selectedAction: body.selectedAction,
     state: body.state,
   })
-  const modelResponse = await callGeminiKeeper(env, prompt)
+  // 混合路由：五樓與強制高潮回合是玩家記憶最深的段落，
+  // 改用高階模型拉高敘事品質；其餘回合維持低延遲低成本的預設模型。
+  const isClimaxTurn =
+    sceneId === '007_landlord_apartment' ||
+    body.state?.flags?.ritual_forced_climax === true
+  const model =
+    isClimaxTurn && env.GEMINI_CLIMAX_MODEL ? env.GEMINI_CLIMAX_MODEL : geminiModel
+  const geminiResult = await callGeminiKeeper(env, prompt, model)
+  const modelResponse = geminiResult.response
   const source: TurnSource = modelResponse ? 'model' : 'fallback'
   const baseResponse =
     modelResponse ??
@@ -331,6 +375,7 @@ async function runModelTurn(
   )
 
   return {
+    model: geminiResult.modelUsed,
     response: ensureAvailableActions(
       constrainedResponse,
       sceneId,

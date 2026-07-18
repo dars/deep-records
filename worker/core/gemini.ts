@@ -121,34 +121,47 @@ type GeminiEnv = {
   GEMINI_API_KEY: string
 }
 
+export type GeminiKeeperResult = {
+  // 實際完成呼叫的模型（指定模型不存在時保險絲會退回預設模型）。
+  modelUsed: string
+  response: KeeperResponse | undefined
+}
+
 export async function callGeminiKeeper(
   env: GeminiEnv,
   prompt: string,
-): Promise<KeeperResponse | undefined> {
+  model: string = geminiModel,
+): Promise<GeminiKeeperResult> {
+  let modelUsed = model
+
   // 解析失敗時重新取樣一次（截斷或格式錯誤通常是偶發），仍失敗才交給 fallback。
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const text = await generateGeminiText(env, prompt)
+    const generated = await generateGeminiText(env, prompt, model)
+    modelUsed = generated.modelUsed
 
     try {
-      const parsed = parseKeeperJson(text)
+      const parsed = parseKeeperJson(generated.text)
 
       return {
-        actions: normalizeActions(parsed.actions),
-        checks: normalizeChecks(parsed.checks),
-        effects: normalizeEffects(parsed.effects),
-        narration: normalizeNarration(parsed.narration).map(completeAbruptNarration),
-        observation: normalizeObservation(parsed.observation),
+        modelUsed,
+        response: {
+          actions: normalizeActions(parsed.actions),
+          checks: normalizeChecks(parsed.checks),
+          effects: normalizeEffects(parsed.effects),
+          narration: normalizeNarration(parsed.narration).map(completeAbruptNarration),
+          observation: normalizeObservation(parsed.observation),
+        },
       }
     } catch {
       console.error(
         'keeper_json_parse_failed',
         `attempt=${attempt + 1}`,
-        text.slice(0, 300),
+        generated.text.slice(0, 300),
       )
     }
   }
 
-  return undefined
+  return { modelUsed, response: undefined }
 }
 
 // 限制模型思考深度是延遲的最大槓桿：守密人回合以格式化與敘事為主，
@@ -156,23 +169,31 @@ export async function callGeminiKeeper(
 // thinkingLevel（Gemini 3 系列）→ thinkingBudget（2.5 系列）→ 不帶參數。
 type ThinkingMode = 'level' | 'budget' | 'none'
 
-let thinkingMode: ThinkingMode = 'level'
+// 混合路由下不同模型可能支援不同的 thinking 欄位，降級狀態逐模型記錄。
+const thinkingModes = new Map<string, ThinkingMode>()
 
-function downgradeThinkingMode(): boolean {
-  if (thinkingMode === 'level') {
-    thinkingMode = 'budget'
+function getThinkingMode(model: string): ThinkingMode {
+  return thinkingModes.get(model) ?? 'level'
+}
+
+function downgradeThinkingMode(model: string): boolean {
+  const current = getThinkingMode(model)
+
+  if (current === 'level') {
+    thinkingModes.set(model, 'budget')
     return true
   }
 
-  if (thinkingMode === 'budget') {
-    thinkingMode = 'none'
+  if (current === 'budget') {
+    thinkingModes.set(model, 'none')
     return true
   }
 
   return false
 }
 
-function buildRequestBody(prompt: string) {
+function buildRequestBody(prompt: string, model: string) {
+  const thinkingMode = getThinkingMode(model)
   const thinkingConfig =
     thinkingMode === 'level'
       ? { thinkingLevel: 'low' }
@@ -198,9 +219,14 @@ function buildRequestBody(prompt: string) {
   })
 }
 
-async function generateGeminiText(env: GeminiEnv, prompt: string) {
+async function generateGeminiText(
+  env: GeminiEnv,
+  prompt: string,
+  model: string,
+): Promise<{ modelUsed: string; text: string }> {
   let lastError: Error | undefined
   let attempts = 0
+  let activeModel = model
   // 一般錯誤最多重試一次；thinkingConfig 欄位不相容的降級重試另計（最多兩次）。
   const maxAttempts = 2 + 2
 
@@ -211,9 +237,9 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent`,
         {
-          body: buildRequestBody(prompt),
+          body: buildRequestBody(prompt, activeModel),
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': env.GEMINI_API_KEY,
@@ -229,9 +255,24 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
         if (
           response.status === 400 &&
           /thinking/i.test(errorBody) &&
-          downgradeThinkingMode()
+          downgradeThinkingMode(activeModel)
         ) {
-          console.error('keeper_thinking_mode_downgraded', thinkingMode)
+          console.error(
+            'keeper_thinking_mode_downgraded',
+            activeModel,
+            getThinkingMode(activeModel),
+          )
+          continue
+        }
+
+        // 混合路由的保險絲：指定的高階模型不存在時退回預設模型，
+        // 不中斷遊戲回合。
+        if (
+          activeModel !== geminiModel &&
+          (response.status === 404 || /not found|is not supported/i.test(errorBody))
+        ) {
+          console.error('keeper_climax_model_unavailable', activeModel)
+          activeModel = geminiModel
           continue
         }
 
@@ -248,7 +289,7 @@ async function generateGeminiText(env: GeminiEnv, prompt: string) {
 
       const data = await response.json<Record<string, unknown>>()
 
-      return extractGeminiText(data)
+      return { modelUsed: activeModel, text: extractGeminiText(data) }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
 
