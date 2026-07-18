@@ -54,6 +54,7 @@ references: [character_lin_xian_hong, character_landlord, item_hidden_memory_car
   - **第三階段：調查抽屜。**抽屜保持打開時，玩家必須再次調查抽屜內部、移開雜物、比較內外深度或檢查木軌，才會察覺抽屜比桌身應有的深度短，後方可能留有一小段奇怪空間。設定 `living_room_table_hidden_space_suspected`；此時仍不得取得記憶卡。
   - **第四階段：調查隱藏空間。**只有 `living_room_table_hidden_space_suspected` 已設定後，玩家明確伸手調查後方空間，或把抽屜整個抽出，才會發現 `item_hidden_memory_card`。
   - 四個階段都不需要檢定，避免主線道具因一次失敗永久封鎖；但 KP 不得把前一階段的泛稱調查擴張成完成下一階段。
+  - `hidden_memory_card_found` 已設定後，這個藏匿處已經清空。玩家再次翻找抽屜或後方夾層，不得重演發現流程或再次給出記憶卡，只能描述空蕩、已經搜過的觸感。
 
 ### 關上抽屜時的異音
 

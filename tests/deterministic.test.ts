@@ -196,10 +196,22 @@ describe('handleScriptedInvestigation：木桌抽屜謎題', () => {
     expect(response?.actions.length).toBeGreaterThan(0)
   })
 
-  it('已取得記憶卡後回訪抽屜交給模型處理', () => {
+  it('已取得記憶卡後回訪抽屜：確定性回應已清空，不重複發放', () => {
     const response = handleScriptedInvestigation(
       '003_friend_apartment_livingroom',
       '再檢查一次抽屜',
+      undefined,
+      { inventory: ['item_hidden_memory_card'], flags: {} },
+    )
+
+    expect(response?.effects?.addInventory).toBeUndefined()
+    expect(response?.narration.join('')).toContain('已經徹底翻過')
+  })
+
+  it('已取得記憶卡後，與抽屜無關的桌面回訪仍交給模型處理', () => {
+    const response = handleScriptedInvestigation(
+      '003_friend_apartment_livingroom',
+      '再看一次桌上的信件',
       undefined,
       { inventory: ['item_hidden_memory_card'], flags: {} },
     )
@@ -255,6 +267,33 @@ describe('enforceDiscoveryConstraints：記憶卡提前洩漏防護', () => {
     )
 
     expect(constrained.effects?.addInventory).toEqual([])
+    expect(constrained.effects?.discoverClues).toEqual([])
+  })
+
+  it('記憶卡已取得後，模型重演發現流程時附帶的線索也會被擋下（即使隱藏空間旗標已設）', () => {
+    // addInventory 的重複發放已由 removeAlreadyOwnedInventory 擋下；
+    // 這裡驗證的是舊版漏掉的另一半——discoverClues 沒有以擁有狀態去重，
+    // 過去只要 hiddenSpaceWasSuspected 已是 true 就不再過濾，導致線索重複冒出。
+    const constrained = enforceDiscoveryConstraints(
+      {
+        actions: [],
+        checks: [],
+        effects: {
+          discoverClues: ['木桌抽屜後方的記憶卡'],
+        },
+        narration: ['模型重演一次發現流程的敘事。'],
+      },
+      '003_friend_apartment_livingroom',
+      '再次伸手調查抽屜後方',
+      {
+        flags: {
+          hidden_memory_card_found: true,
+          living_room_table_hidden_space_suspected: true,
+        },
+        inventory: ['item_hidden_memory_card'],
+      },
+    )
+
     expect(constrained.effects?.discoverClues).toEqual([])
   })
 })

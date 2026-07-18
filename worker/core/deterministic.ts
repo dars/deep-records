@@ -620,8 +620,37 @@ function handleLivingRoomTablePuzzle(
       actionText,
     )
 
+  const touchesDrawerOrHiddenSpace =
+    /抽屜/.test(actionText) || investigatesHiddenSpace || removesDrawer
+
+  if (memoryCardWasFound && touchesDrawerOrHiddenSpace) {
+    // 藏匿處已經清空：不得重演一次發現流程或再次發放記憶卡。
+    return {
+      actions: [
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'leave-emptied-drawer-hiding-spot',
+          label: '收手，繼續調查客廳其他地方',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'inspect-table-documents',
+          label: '查看桌上的信件與工作文件',
+        },
+      ],
+      checks: [],
+      narration: [
+        '抽屜與後方那段夾層，你已經徹底翻過一次。裡面除了灰塵與空蕩的觸感，什麼都沒有——記憶卡已經在你手上，這個藏匿處不會再有其他發現。',
+      ],
+      observation: {
+        reason: '玩家在記憶卡已取得後，重複調查同一處已清空的抽屜與隱藏空間。',
+        signal: 'none',
+      },
+    }
+  }
+
   if (memoryCardWasFound) {
-    // 已取得記憶卡後的回訪交給模型敘事；重複發放由守門邏輯擋下。
+    // 已取得記憶卡後，與抽屜無關的桌面回訪交給模型敘事；重複發放由守門邏輯擋下。
     return undefined
   }
 

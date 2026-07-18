@@ -331,12 +331,18 @@ export function enforceDiscoveryConstraints(
     }
   }
 
-  // 記憶卡只能經由抽屜謎題（deterministic 流程）取得：
-  // 玩家尚未推理出隱藏空間前，模型不得自行發放記憶卡或相關線索。
+  // 記憶卡只能經由抽屜謎題（deterministic 流程）取得，且只能取得一次：
+  // 玩家尚未推理出隱藏空間前，或已經取得記憶卡後，模型都不得自行發放記憶卡或相關線索。
   const hiddenSpaceWasSuspected =
     state?.flags?.living_room_table_hidden_space_suspected === true
+  const memoryCardAlreadyFound =
+    state?.flags?.hidden_memory_card_found === true ||
+    state?.inventory?.includes('item_hidden_memory_card') === true
 
-  if (sceneId === '003_friend_apartment_livingroom' && !hiddenSpaceWasSuspected) {
+  if (
+    sceneId === '003_friend_apartment_livingroom' &&
+    (!hiddenSpaceWasSuspected || memoryCardAlreadyFound)
+  ) {
     constrained = {
       ...constrained,
       effects: {
