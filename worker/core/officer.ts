@@ -30,22 +30,6 @@ export const attackOfficerPattern =
 
 const callsPolicePattern = /報警|打給警|打電話.*警|撥打?\s*110|打\s*110|叫警察|通知警方|請警方/
 
-// 「三次實質調查」的近似：以確定性流程會設下的里程碑推導，
-// 不需要另外維護計數器欄位。
-export function countSignificantInvestigations(state?: KeeperWireState): number {
-  const flags = state?.flags ?? {}
-  const visited = new Set(state?.visitedScenes ?? [])
-  const milestones = [
-    flags.star_spawn_idol_examined === true,
-    flags.hidden_memory_card_found === true,
-    flags.memory_card_initial_files_opened === true,
-    visited.has('003_friend_bedroom'),
-    visited.has('006_friend_balcony'),
-  ]
-
-  return milestones.filter(Boolean).length
-}
-
 export function hasOfficerArrived(state?: KeeperWireState): boolean {
   return state?.flags?.officer_a_yang_arrived === true
 }
@@ -63,13 +47,13 @@ export function isPlayerRestrained(state?: KeeperWireState): boolean {
   return state?.flags?.officer_player_restrained === true
 }
 
-// 登場保底：不論調查深度，總回合數到了阿陽就會來——
-// 「鄰居反映怪聲」本來就與玩家做了什麼無關，他照自己的時間表出現。
-// 這同時是漂流玩家的節奏保證與模型呼叫的成本上限。
+// 登場完全按時間表走，不論調查深度——「鄰居反映怪聲」本來就與玩家做了
+// 什麼無關，他照自己的時間表出現。回合數只在時鐘缺值時當退回判斷，
+// 同時也是漂流玩家的節奏保證與模型呼叫的成本上限。
 export const scheduledArrivalTurn = 12
-// 時間觸發：阿陽的例行到場時刻（02:05）；儀式死線前的押送下令時刻（02:45，
+// 時間觸發：阿陽的例行到場時刻（02:00）；儀式死線前的押送下令時刻（02:45，
 // 凌晨三時滿潮前房東必須完成準備）。時鐘缺值時退回回合數判斷。
-export const officerArrivalClockMinutes = 2 * 60 + 5
+export const officerArrivalClockMinutes = 2 * 60
 export const ritualDeadlineClockMinutes = 2 * 60 + 45
 
 function clockOf(state?: KeeperWireState): number | undefined {
@@ -97,10 +81,9 @@ export function handleOfficerArrival(
     (callsPolicePattern.test(actionText) && !isLeaving)
   const clock = clockOf(state)
   const arrivalDue =
-    countSignificantInvestigations(state) >= 3 ||
-    (clock !== undefined
+    clock !== undefined
       ? clock >= officerArrivalClockMinutes
-      : (turnIndex ?? 0) >= scheduledArrivalTurn)
+      : (turnIndex ?? 0) >= scheduledArrivalTurn
 
   if (!callsPolice && !arrivalDue) {
     return undefined
@@ -142,7 +125,7 @@ export function handleOfficerArrival(
     observation: {
       reason: callsPolice
         ? '玩家主動報警，由地方警員阿陽到場回應。'
-        : '玩家完成足夠的實質調查，房東安排阿陽到場。',
+        : '時間到了阿陽的例行到場時刻，房東按排程安排他到場。',
       signal: callsPolice ? 'rational_investigation' : 'none',
     },
   }

@@ -2,40 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { handleDeterministicSceneTransition } from '../worker/core/deterministic'
 import { inferEnding } from '../worker/core/ending'
 import {
-  countSignificantInvestigations,
   handleOfficerArrival,
+  officerArrivalClockMinutes,
+  scheduledArrivalTurn,
 } from '../worker/core/officer'
 
-const threeMilestonesState = {
-  flags: {
-    hidden_memory_card_found: true,
-    memory_card_initial_files_opened: true,
-    star_spawn_idol_examined: true,
-  },
+// 登場已完全按時間表走：時鐘到了到場時刻，或缺時鐘時退回回合數。
+const arrivalDueByClockState = {
+  clockMinutes: officerArrivalClockMinutes,
+  flags: {},
   inventory: ['item_hidden_memory_card'],
   visitedScenes: ['003_friend_apartment_livingroom'],
 }
 
-describe('countSignificantInvestigations', () => {
-  it('以里程碑旗標與造訪房間計算實質調查次數', () => {
-    expect(countSignificantInvestigations(undefined)).toBe(0)
-    expect(countSignificantInvestigations(threeMilestonesState)).toBe(3)
-    expect(
-      countSignificantInvestigations({
-        flags: { star_spawn_idol_examined: true },
-        visitedScenes: ['003_friend_bedroom', '006_friend_balcony'],
-      }),
-    ).toBe(3)
-  })
-})
-
 describe('handleOfficerArrival', () => {
-  it('三次實質調查後，任意行動都會被到場搶佔並設下旗標', () => {
+  it('時鐘到達例行到場時刻後，任意行動都會被到場搶佔並設下旗標', () => {
     const response = handleOfficerArrival(
       '003_friend_apartment_livingroom',
       '繼續調查沙發',
       undefined,
-      threeMilestonesState,
+      arrivalDueByClockState,
     )
 
     expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
@@ -43,12 +29,25 @@ describe('handleOfficerArrival', () => {
     expect(response?.actions.length).toBeGreaterThan(0)
   })
 
-  it('調查不足三次且未報警時不觸發', () => {
+  it('缺時鐘值時退回回合數判斷：回合數到了同樣觸發', () => {
     const response = handleOfficerArrival(
       '003_friend_apartment_livingroom',
       '繼續調查沙發',
       undefined,
-      { flags: { star_spawn_idol_examined: true } },
+      { flags: {} },
+      scheduledArrivalTurn,
+    )
+
+    expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
+  })
+
+  it('時鐘未到、回合數也不足且未報警時不觸發', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '繼續調查沙發',
+      undefined,
+      { clockMinutes: officerArrivalClockMinutes - 1, flags: {} },
+      scheduledArrivalTurn - 1,
     )
 
     expect(response).toBeUndefined()
@@ -83,8 +82,8 @@ describe('handleOfficerArrival', () => {
       '繼續調查沙發',
       undefined,
       {
-        ...threeMilestonesState,
-        flags: { ...threeMilestonesState.flags, officer_a_yang_arrived: true },
+        ...arrivalDueByClockState,
+        flags: { ...arrivalDueByClockState.flags, officer_a_yang_arrived: true },
       },
     )
 
@@ -105,7 +104,7 @@ describe('handleOfficerArrival', () => {
       '002_friend_apartment',
       '繼續檢查鐵門',
       undefined,
-      { ...threeMilestonesState, currentSceneId: '002_friend_apartment' },
+      { ...arrivalDueByClockState, currentSceneId: '002_friend_apartment' },
     )
 
     expect(response?.narration.join('')).toContain('樓梯間')
@@ -118,8 +117,8 @@ describe('handleOfficerArrival', () => {
       '繼續調查沙發',
       undefined,
       {
-        ...threeMilestonesState,
-        flags: { ...threeMilestonesState.flags, friend_apartment_door_broken: true },
+        ...arrivalDueByClockState,
+        flags: { ...arrivalDueByClockState.flags, friend_apartment_door_broken: true },
       },
     )
 
@@ -375,7 +374,7 @@ describe('場景脫鉤修復', () => {
       '002_friend_apartment',
       '繼續檢查鐵門',
       undefined,
-      { ...threeMilestonesState, currentSceneId: '002_friend_apartment' },
+      { ...arrivalDueByClockState, currentSceneId: '002_friend_apartment' },
     )
 
     expect(response?.effects?.setFlags?.officer_door_opened).toBe(true)
@@ -739,11 +738,8 @@ describe('瘋狂濾鏡：腳本節點的失序變體', () => {
       '站在原地',
       undefined,
       {
-        flags: {
-          hidden_memory_card_found: true,
-          memory_card_initial_files_opened: true,
-          star_spawn_idol_examined: true,
-        },
+        clockMinutes: officerArrivalClockMinutes,
+        flags: {},
         sanity: disorderedSanity,
       },
     )
@@ -758,11 +754,8 @@ describe('瘋狂濾鏡：腳本節點的失序變體', () => {
       '站在原地',
       undefined,
       {
-        flags: {
-          hidden_memory_card_found: true,
-          memory_card_initial_files_opened: true,
-          star_spawn_idol_examined: true,
-        },
+        clockMinutes: officerArrivalClockMinutes,
+        flags: {},
         sanity: { current: 55, lostToday: 0, starting: 55 },
       },
     )
@@ -833,12 +826,9 @@ describe('HP 歸零的無名屍結局', () => {
 
 describe('節奏割裂修正', () => {
   it('首次讀取記憶卡的回合不觸發登場；讀過之後恢復', () => {
-    const milestonesMet = {
-      flags: {
-        hidden_memory_card_found: true,
-        star_spawn_idol_examined: true,
-      },
-      visitedScenes: ['003_friend_bedroom'],
+    const arrivalDue = {
+      clockMinutes: officerArrivalClockMinutes,
+      flags: {},
     }
 
     expect(
@@ -846,7 +836,7 @@ describe('節奏割裂修正', () => {
         '003_friend_apartment_livingroom',
         '接上讀卡機，讀取記憶卡的內容',
         undefined,
-        milestonesMet,
+        arrivalDue,
       ),
     ).toBeUndefined()
 
@@ -856,9 +846,9 @@ describe('節奏割裂修正', () => {
         '再次查看記憶卡的照片',
         undefined,
         {
-          ...milestonesMet,
+          ...arrivalDue,
           flags: {
-            ...milestonesMet.flags,
+            ...arrivalDue.flags,
             memory_card_initial_files_opened: true,
           },
         },
@@ -905,12 +895,12 @@ describe('節奏割裂修正', () => {
 })
 
 describe('時間觸發', () => {
-  it('時鐘達 02:05：例行登場（零里程碑也觸發）', () => {
+  it('時鐘達例行到場時刻：例行登場（不看調查深度）', () => {
     const response = handleOfficerArrival(
       '003_friend_apartment_livingroom',
       '站在窗邊看雨',
       undefined,
-      { clockMinutes: 125, flags: {} },
+      { clockMinutes: officerArrivalClockMinutes, flags: {} },
     )
     expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
 
@@ -919,7 +909,7 @@ describe('時間觸發', () => {
         '003_friend_apartment_livingroom',
         '站在窗邊看雨',
         undefined,
-        { clockMinutes: 121, flags: {} },
+        { clockMinutes: officerArrivalClockMinutes - 1, flags: {} },
         3,
       ),
     ).toBeUndefined()
