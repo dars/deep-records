@@ -151,7 +151,7 @@ describe('阿陽登場後的封鎖', () => {
   })
 })
 
-import { processOfficerDoorPhase } from '../worker/core/officer'
+import { processOfficerDoorPhase, processOfficerHiddenPhase } from '../worker/core/officer'
 import { handleDeterministicInvestigationAction } from '../worker/core/deterministic'
 
 describe('阿陽門外流程狀態機', () => {
@@ -179,7 +179,7 @@ describe('阿陽門外流程狀態機', () => {
     )
 
     expect(result?.preempt).toBeUndefined()
-    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    expect(result?.markFlags).toEqual({ officer_wait_one: true, player_hiding: false })
   })
 
   it('第 2 次不理：搶佔回合加重語氣', () => {
@@ -197,7 +197,7 @@ describe('阿陽門外流程狀態機', () => {
   it('第 3 次不理：拿房東鑰匙進門並要求配合', () => {
     const result = processOfficerDoorPhase(
       '004_friend_kitchen',
-      '躲進廚房不出聲',
+      '站在原地不出聲，等他離開',
       undefined,
       {
         flags: {
@@ -223,7 +223,7 @@ describe('阿陽門外流程狀態機', () => {
     )
 
     expect(result?.preempt).toBeUndefined()
-    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+    expect(result?.markFlags).toEqual({ officer_door_opened: true, player_hiding: false })
   })
 
   it('「先不開門」的否定語氣視為不理會', () => {
@@ -234,7 +234,8 @@ describe('阿陽門外流程狀態機', () => {
       { flags: arrivedFlags },
     )
 
-    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    // 藏「物品」不是藏自己，不得誤判為躲藏姿態。
+    expect(result?.markFlags).toEqual({ officer_wait_one: true, player_hiding: false })
   })
 })
 
@@ -430,7 +431,7 @@ describe('門邊互動的場景強制切換', () => {
       { flags: arrivedFlags },
     )
 
-    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+    expect(result?.markFlags).toEqual({ officer_door_opened: true, player_hiding: false })
     expect(result?.forceSceneId).toBe('003_friend_apartment_livingroom')
   })
 
@@ -442,7 +443,7 @@ describe('門邊互動的場景強制切換', () => {
       { flags: arrivedFlags },
     )
 
-    expect(result?.markFlags).toEqual({ officer_door_opened: true })
+    expect(result?.markFlags).toEqual({ officer_door_opened: true, player_hiding: false })
     expect(result?.forceSceneId).toBeUndefined()
   })
 
@@ -454,7 +455,7 @@ describe('門邊互動的場景強制切換', () => {
       { flags: arrivedFlags },
     )
 
-    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    expect(result?.markFlags).toEqual({ officer_wait_one: true, player_hiding: false })
     expect(result?.forceSceneId).toBe('003_friend_apartment_livingroom')
   })
 
@@ -466,7 +467,95 @@ describe('門邊互動的場景強制切換', () => {
       { flags: arrivedFlags },
     )
 
-    expect(result?.markFlags).toEqual({ officer_wait_one: true })
+    expect(result?.markFlags).toEqual({ officer_wait_one: true, player_hiding: false })
     expect(result?.forceSceneId).toBeUndefined()
+  })
+})
+
+describe('躲藏狀態機', () => {
+  const enteredHidden = {
+    officer_a_yang_arrived: true,
+    officer_door_opened: true,
+    officer_entered_with_key: true,
+    player_hiding: true,
+  }
+
+  it('躲藏姿態在門外回合被記錄；進門時走隱藏視角變體', () => {
+    const marked = processOfficerDoorPhase(
+      '003_friend_bedroom',
+      '躲進衣櫃不出聲',
+      undefined,
+      { flags: { officer_a_yang_arrived: true } },
+    )
+    expect(marked?.markFlags).toEqual({ officer_wait_one: true, player_hiding: true })
+
+    const entry = processOfficerDoorPhase(
+      '003_friend_bedroom',
+      '繼續躲著',
+      undefined,
+      {
+        flags: {
+          officer_a_yang_arrived: true,
+          officer_wait_one: true,
+          officer_knock_escalated: true,
+          player_hiding: true,
+        },
+      },
+    )
+    expect(entry?.preempt?.narration.join('')).toContain('你看不見他')
+    expect(entry?.preempt?.actions.map((a) => a.id)).toEqual([
+      'reveal-from-hiding',
+      'stay-hidden',
+    ])
+  })
+
+  it('躲藏期間調查被擋下，只剩現身／繼續躲', () => {
+    const blocked = processOfficerHiddenPhase(
+      '翻找書桌抽屜',
+      undefined,
+      { flags: enteredHidden },
+    )
+    expect(blocked?.actions.map((a) => a.id)).toEqual([
+      'reveal-from-hiding',
+      'stay-hidden',
+    ])
+    expect(blocked?.effects).toBeUndefined()
+  })
+
+  it('繼續躲第一次：對講機暗示；第二次：被筆直找到＋SAN 事件', () => {
+    const first = processOfficerHiddenPhase(
+      '屏住呼吸，繼續躲著不動',
+      { id: 'stay-hidden', label: '屏住呼吸，繼續躲著不動' },
+      { flags: enteredHidden },
+    )
+    expect(first?.effects?.setFlags?.officer_hidden_wait_one).toBe(true)
+
+    const found = processOfficerHiddenPhase(
+      '屏住呼吸，繼續躲著不動',
+      { id: 'stay-hidden', label: '屏住呼吸，繼續躲著不動' },
+      { flags: { ...enteredHidden, officer_hidden_wait_one: true } },
+    )
+    expect(found?.effects?.setFlags?.officer_found_hiding_player).toBe(true)
+    expect(found?.effects?.setFlags?.player_hiding).toBe(false)
+    expect(found?.effects?.sanityCheck?.eventFlag).toBe('san_checked_found_while_hiding')
+    expect(found?.narration.join('')).toContain('筆直')
+  })
+
+  it('主動現身：清除躲藏、回到客廳對峙', () => {
+    const reveal = processOfficerHiddenPhase(
+      '深呼吸，主動從藏身處現身',
+      { id: 'reveal-from-hiding', label: '深呼吸，主動從藏身處現身' },
+      { flags: enteredHidden },
+    )
+    expect(reveal?.effects?.setFlags?.player_hiding).toBe(false)
+    expect(reveal?.effects?.nextSceneId).toBe('003_friend_apartment_livingroom')
+  })
+
+  it('被找到後狀態機停用，交回一般對峙流程', () => {
+    expect(
+      processOfficerHiddenPhase('觀察阿陽', undefined, {
+        flags: { ...enteredHidden, player_hiding: false, officer_found_hiding_player: true },
+      }),
+    ).toBeUndefined()
   })
 })

@@ -21,7 +21,11 @@ import { logTurnEvent, type TurnSource } from './core/analytics'
 import { computeBeliefUpdate, gateWitnessEnding } from './core/belief'
 import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
-import { handleOfficerArrival, processOfficerDoorPhase } from './core/officer'
+import {
+  handleOfficerArrival,
+  processOfficerDoorPhase,
+  processOfficerHiddenPhase,
+} from './core/officer'
 import { buildPrompt } from './core/prompt'
 import { processRitualPacing } from './core/ritual'
 import { resolveSanityEffects } from './core/sanity'
@@ -54,7 +58,7 @@ export type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-20'
+const workerVersion = 'keeper-session-2026-07-18-21'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -266,6 +270,8 @@ export async function executeKeeperTurn(
   let response: KeeperResponse | undefined =
     ritualPacing?.preempt ??
     doorPhase?.preempt ??
+    // 玩家躲藏期間的封閉狀態機（阿陽已持鑰匙進門、玩家尚未現身／被找到）。
+    processOfficerHiddenPhase(playerAction, body.selectedAction, body.state) ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
     handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state)
 

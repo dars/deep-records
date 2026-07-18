@@ -14,6 +14,9 @@ export const systemFlags = [
   'officer_door_opened',
   'officer_entered_with_key',
   'officer_player_restrained',
+  'player_hiding',
+  'officer_hidden_wait_one',
+  'officer_found_hiding_player',
 
   // 五樓終局節奏
   'fifth_floor_turn_1',

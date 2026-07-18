@@ -219,6 +219,8 @@ export function processOfficerDoorPhase(
     /不(?:開門|應門|回應|理|出聲)|先不|保持安靜|保持沉默|假裝沒|不予理會/.test(
       actionText,
     )
+  // 玩家這回合的姿態：是否躲藏。以最後一次門外回合的姿態決定進門變體。
+  const isHidingNow = hidingPattern.test(actionText)
   const opensDoor =
     !refusesToOpen &&
     (selectedAction?.id === 'answer-door-to-officer' ||
@@ -235,18 +237,209 @@ export function processOfficerDoorPhase(
 
   if (opensDoor) {
     // 交給模型演開門後的問話；旗標讓狀態機停下、提醒模型他已在場。
-    return { forceSceneId, markFlags: { officer_door_opened: true } }
+    return {
+      forceSceneId,
+      markFlags: { officer_door_opened: true, player_hiding: false },
+    }
   }
 
   if (flags.officer_wait_one !== true) {
-    return { forceSceneId, markFlags: { officer_wait_one: true } }
+    return {
+      forceSceneId,
+      markFlags: { officer_wait_one: true, player_hiding: isHidingNow },
+    }
   }
 
   if (flags.officer_knock_escalated !== true) {
-    return { forceSceneId, preempt: buildEscalationResponse() }
+    return {
+      forceSceneId,
+      markFlags: { player_hiding: isHidingNow },
+      preempt: buildEscalationResponse(),
+    }
+  }
+
+  // 進門時刻：玩家若躲著（上一回合姿態或本回合動作），阿陽的進場
+  // 只能被「聽見」——玩家不知道他的狀況，進入躲藏狀態機。
+  if (flags.player_hiding === true || isHidingNow) {
+    return { markFlags: { player_hiding: true }, preempt: buildHiddenKeyEntryResponse() }
   }
 
   return { forceSceneId, preempt: buildKeyEntryResponse() }
+}
+
+// 只匹配「藏自己」：藏起／藏到常指藏物品（例如把記憶卡藏起來），不算躲藏。
+const hidingPattern = /躲|藏身|把自己藏|蜷縮|蜷進|鑽進|鑽到/
+
+const hiddenPhaseActions: KeeperAction[] = [
+  {
+    beliefSignal: 'withhold_judgment',
+    id: 'reveal-from-hiding',
+    label: '深呼吸，主動從藏身處現身',
+  },
+  {
+    beliefSignal: 'withhold_judgment',
+    id: 'stay-hidden',
+    label: '屏住呼吸，繼續躲著不動',
+  },
+]
+
+// ── 躲藏狀態機 ──────────────────────────────────────────────
+// 阿陽持鑰匙進門時玩家躲著：玩家看不見他，只能聽。
+// 躲藏期間不得調查（任何其他動作都會被擋下），選項只有現身／繼續躲。
+// 繼續躲第 1 次：他在屋裡移動、對講機低語（房東在報位置的暗示）。
+// 繼續躲第 2 次：他不搜索，筆直走向藏身處——四樓一直被監視著。
+export function processOfficerHiddenPhase(
+  playerAction: string,
+  selectedAction?: KeeperAction,
+  state?: KeeperWireState,
+): KeeperResponse | undefined {
+  const flags = state?.flags ?? {}
+
+  if (
+    flags.officer_entered_with_key !== true ||
+    flags.player_hiding !== true ||
+    flags.officer_found_hiding_player === true
+  ) {
+    return undefined
+  }
+
+  const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+  const reveals =
+    selectedAction?.id === 'reveal-from-hiding' ||
+    /現身|走出|站出|出去面對|自首|投降|承認.*在/.test(actionText)
+  const staysHidden =
+    selectedAction?.id === 'stay-hidden' ||
+    /繼續躲|屏住|不出聲|躲著|保持躲|繼續藏|一動不動/.test(actionText)
+
+  if (reveals) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'comply-with-officer-questions',
+          label: '暫時配合他的問話，觀察他想知道什麼',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'question-officer-about-key',
+          label: '質問他為什麼會有這間住處的鑰匙',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'watch-officer-silently',
+          label: '保持距離不說話，緊盯他的每個動作',
+        },
+      ],
+      checks: [],
+      effects: {
+        nextSceneId: livingroomSceneId,
+        setFlags: { player_hiding: false },
+      },
+      narration: [
+        '你撥開遮蔽物，從藏身的位置走出去。屋裡的腳步聲停了。',
+        '他站在客廳中央，看見你出現時沒有任何驚訝——沒有戒備、沒有意外，像是早就知道你在哪裡，只是在等你自己想通。「這樣就對了。」他點點頭，語氣近乎溫和：「配合一點，對大家都好。」',
+      ],
+      observation: {
+        reason: '玩家主動從藏身處現身面對阿陽。',
+        signal: 'withhold_judgment',
+      },
+    }
+  }
+
+  if (staysHidden && flags.officer_hidden_wait_one !== true) {
+    return {
+      actions: hiddenPhaseActions,
+      checks: [],
+      effects: {
+        setFlags: { officer_hidden_wait_one: true },
+      },
+      narration: [
+        '你屏住呼吸。腳步聲在屋裡緩慢移動，停頓，再移動——不像在搜索，更像在逐一確認什麼。',
+        '然後你聽見對講機的雜訊，和一段壓得極低的交談。內容聽不清，只有最後一個字被清楚地說出來：「……好。」',
+      ],
+      observation: {
+        reason: '玩家持續躲藏；阿陽透過對講機接收指示。',
+        signal: 'withhold_judgment',
+      },
+    }
+  }
+
+  if (staysHidden) {
+    return {
+      actions: [
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'comply-after-being-found',
+          label: '在光圈裡緩緩站起來，照他說的做',
+        },
+        {
+          beliefSignal: 'rational_investigation',
+          id: 'ask-how-he-knew',
+          label: '質問他為什麼能直接找到你藏身的位置',
+        },
+        {
+          beliefSignal: 'withhold_judgment',
+          id: 'stay-silent-after-found',
+          label: '不回話，觀察他接下來要做什麼',
+        },
+      ],
+      checks: [],
+      effects: {
+        sanityCheck: {
+          eventFlag: 'san_checked_found_while_hiding',
+          spec: '0/1',
+        },
+        setFlags: {
+          officer_found_hiding_player: true,
+          player_hiding: false,
+        },
+      },
+      narration: [
+        '腳步聲重新響起。這一次沒有停頓，沒有試探——它穿過屋子，轉了一個彎，筆直地朝你藏身的位置走來，彷彿有人在他耳邊報出了確切的座標。',
+        '遮蔽物被拉開。手電筒的光落在你臉上，光圈後面是那張平穩得近乎溫和的臉。「別這樣嘛。」他說，語氣像在勸一個鬧脾氣的孩子：「出來吧。配合一點，這也是保護你。」',
+      ],
+      observation: {
+        reason: '玩家躲藏被阿陽精準找到；他事先知道位置。',
+        signal: 'withhold_judgment',
+      },
+    }
+  }
+
+  // 躲藏中嘗試任何其他行動：擋下，不消耗躲藏進度。
+  return {
+    actions: hiddenPhaseActions,
+    checks: [],
+    narration: [
+      '你壓下行動的念頭。此刻任何多餘的動作——翻找、移動、碰觸任何東西——發出的每一點聲響都可能立刻暴露你的位置。',
+      '腳步聲還在屋裡移動。現在你只有兩個選擇：繼續躲著，或者自己走出去。',
+    ],
+    observation: {
+      reason: '玩家躲藏期間嘗試其他行動，被處境限制。',
+      signal: 'none',
+    },
+  }
+}
+
+function buildHiddenKeyEntryResponse(): KeeperResponse {
+  return {
+    actions: hiddenPhaseActions,
+    checks: [],
+    effects: {
+      setFlags: {
+        officer_door_opened: true,
+        officer_entered_with_key: true,
+      },
+    },
+    narration: [
+      '門外的敲擊聲停了。幾秒的靜默後，你聽見對講機壓低的短促交談，接著是金屬摩擦——鑰匙插進了外側鐵門的鎖孔。',
+      '沉重的鐵門被推開，木門的鎖芯跟著轉動。腳步聲跨進玄關，沉穩、不疾不徐，皮靴底踩在地板上的聲音一路傳到你藏身的位置。你看不見他。你只知道：他已經在屋裡了。',
+      '「我進來了。」平穩的男聲響起，不大，卻清楚得像是說給整層樓聽的。「房東是屋主，已經同意我們進來確認。裡面的人，我建議你自己出來。」',
+    ],
+    observation: {
+      reason: '玩家躲藏時，阿陽使用房東提供的鑰匙進入；玩家僅能聽見動靜。',
+      signal: 'none',
+    },
+  }
 }
 
 function buildEscalationResponse(): KeeperResponse {
