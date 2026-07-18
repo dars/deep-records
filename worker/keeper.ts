@@ -23,6 +23,7 @@ import { inferEnding } from './core/ending'
 import { callGeminiKeeper, geminiModel } from './core/gemini'
 import {
   handleOfficerArrival,
+  processEscortPacing,
   processOfficerDoorPhase,
   processOfficerHiddenPhase,
 } from './core/officer'
@@ -58,7 +59,7 @@ export type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-23'
+const workerVersion = 'keeper-session-2026-07-18-24'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -263,6 +264,13 @@ export async function executeKeeperTurn(
   )
   // 五樓終局節奏：自由回合計數；超過寬限後阿陽強制推進儀式。
   const ritualPacing = processRitualPacing(sceneId, body.state)
+  // 四樓押送節奏：見證者熟成度＋在場回合數決定召喚與押送時機。
+  const escortPacing = processEscortPacing(
+    sceneId,
+    playerAction,
+    body.selectedAction,
+    body.state,
+  )
 
   // 依序嘗試各處理層，並記錄回應來源與模型延遲（供遊玩事件記錄）。
   let turnSource: TurnSource = 'scripted'
@@ -272,6 +280,8 @@ export async function executeKeeperTurn(
     doorPhase?.preempt ??
     // 玩家躲藏期間的封閉狀態機（阿陽已持鑰匙進門、玩家尚未現身／被找到）。
     processOfficerHiddenPhase(playerAction, body.selectedAction, body.state) ??
+    // 召喚與押送搶佔（熟成或硬上限到時）。
+    escortPacing?.preempt ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
     handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state)
 
@@ -321,7 +331,11 @@ export async function executeKeeperTurn(
     turnModel = modelTurn.model
   }
 
-  const markFlags = { ...doorPhase?.markFlags, ...ritualPacing?.markFlags }
+  const markFlags = {
+    ...doorPhase?.markFlags,
+    ...ritualPacing?.markFlags,
+    ...escortPacing?.markFlags,
+  }
 
   if (Object.keys(markFlags).length > 0) {
     response = {

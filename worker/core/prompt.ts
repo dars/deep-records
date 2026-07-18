@@ -7,6 +7,7 @@ import type {
 } from '../../shared/keeper'
 import { occupationAliases, occupations } from '../generated/content'
 import { countRitualTurns, isRitualClimaxForced, ritualGraceTurns } from './ritual'
+import { computeWitnessReadiness, witnessRipeThreshold } from './officer'
 import { selectReferenceSections } from '../config/references'
 
 const coreWorldSummary = `
@@ -61,6 +62,7 @@ export function buildPrompt({
   const historySummary = formatHistory(history)
   const sanityReminder = buildSanityReminder(state)
   const officerReminder = buildOfficerReminder(state)
+  const escortReminder = buildEscortReminder(sceneId, state)
   const ritualReminder = buildRitualReminder(sceneId, state)
 
   return `
@@ -171,7 +173,7 @@ ${selectedAction ? JSON.stringify(selectedAction, null, 2) : '本次不是預設
 
 ${checkResultsSummary}
 
-${sanityReminder}${officerReminder}${ritualReminder}## 玩家動作 / 系統階段指令
+${sanityReminder}${officerReminder}${escortReminder}${ritualReminder}## 玩家動作 / 系統階段指令
 
 ${playerAction}
 
@@ -260,6 +262,60 @@ function buildOfficerReminder(state?: KeeperWireState) {
 - ${status}${insideExtras}
 - 玩家移動、逃跑或被拖行到其他位置時，effects.nextSceneId 必須填入實際抵達的場景 id；阿陽帶領或押送玩家上五樓時（無論玩家目前在幾樓）填 "007_landlord_apartment"，且 actions 必須是五樓現場的行動。
 - 公寓已進入封鎖狀態：不得出現玩家成功離開公寓建築的敘事或選項。
+
+`
+}
+
+// 控場問話提醒：阿陽在場時玩家不得自由搜查；熟成缺口引導養成。
+function buildEscortReminder(sceneId: string, state?: KeeperWireState) {
+  const flags = state?.flags ?? {}
+  const isPresent =
+    flags.officer_door_opened === true || flags.officer_entered_with_key === true
+
+  if (
+    !isPresent ||
+    sceneId === '007_landlord_apartment' ||
+    flags.officer_player_restrained === true ||
+    flags.officer_escort_summons === true
+  ) {
+    return ''
+  }
+
+  const gaps: string[] = []
+
+  if (flags.memory_card_initial_files_opened !== true) {
+    gaps.push(
+      '玩家尚未讀過記憶卡內容：阿陽會設法讓玩家親眼查看（自己「搜到」記憶卡後遞給玩家問「你認得這個嗎」、要求玩家說明來歷、催促玩家打開給他看）。',
+    )
+  }
+
+  const sanity = state?.sanity
+  const lostToday =
+    typeof sanity === 'object' && sanity !== null ? (sanity.lostToday ?? 0) : 0
+
+  if (lostToday < 3) {
+    gaps.push(
+      '玩家理智尚未受到足夠衝擊：阿陽回報無線電時可短暫離開玩家視線，留出環境異象的空隙；引導玩家重看最不安的物件。',
+    )
+  }
+
+  if ((state?.belief?.stage ?? 'skeptical') === 'skeptical') {
+    gaps.push(
+      '玩家信念仍在懷疑階段：阿陽可用「第三方」口吻拋出半信半疑的說法，誘使玩家表態自己怎麼解釋這一切。',
+    )
+  }
+
+  const readiness = computeWitnessReadiness(state)
+  const cultivation =
+    readiness >= witnessRipeThreshold
+      ? '- 玩家的認知已接近成熟：阿陽的問話可以收攏，語氣轉向近乎鄭重的打量。\n'
+      : gaps.map((gap) => `- ${gap}`).join('\n') + '\n'
+
+  return `## 控場問話提醒（每回合必讀）
+
+- 阿陽已控制現場：玩家自行翻找、搜查、開抽屜等動作會被他制止（「先不要亂動，這裡的東西之後都要列管」），actions 不得提供自由搜查選項；改為展示、說明、問答、觀察類選項。
+- 阿陽的目標是養成見證者：他會以警員的正當手段推進玩家的神話暴露——要玩家「走一遍」發現過程、自己檢視現場並把關鍵物「翻出來」給玩家看、對玩家的描述給第三方式冷處理。
+${cultivation}- 阿陽不會主動押送玩家上五樓；押送時機由系統決定，模型不得自行推進到五樓。
 
 `
 }

@@ -17,6 +17,12 @@ export const systemFlags = [
   'player_hiding',
   'officer_hidden_wait_one',
   'officer_found_hiding_player',
+  'officer_stay_turn_1',
+  'officer_stay_turn_2',
+  'officer_stay_turn_3',
+  'officer_stay_turn_4',
+  'officer_stay_turn_5',
+  'officer_escort_summons',
 
   // 五樓終局節奏
   'fifth_floor_turn_1',

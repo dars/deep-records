@@ -268,6 +268,210 @@ export function processOfficerDoorPhase(
 }
 
 // 只匹配「藏自己」：藏起／藏到常指藏物品（例如把記憶卡藏起來），不算躲藏。
+// ── 見證者熟成度與押送節奏 ──────────────────────────────────────
+// 信徒要的是「成熟的見證者」：押送時機由熟成度決定，而非固定回合數。
+// 不熟時阿陽以控場問話養成（見 buildEscortReminder）；硬上限到了
+// 房東等不及，不熟也押（接「非理想見證者 → buried_together」線）。
+
+export function computeWitnessReadiness(state?: KeeperWireState): number {
+  const flags = state?.flags ?? {}
+  const clues = new Set(state?.discoveredClues ?? [])
+  const sanity = state?.sanity
+  const lostToday =
+    typeof sanity === 'object' && sanity !== null ? (sanity.lostToday ?? 0) : 0
+  const stage = state?.belief?.stage ?? 'skeptical'
+
+  let score = 0
+
+  // 核心神話暴露：沒讀過記憶卡的見證者沒有意義。
+  if (flags.memory_card_initial_files_opened === true) {
+    score += 2
+  }
+
+  // 理智上的衝擊（累計損失分層：動搖 ≥3）。
+  if (lostToday >= 3) {
+    score += 2
+  } else if (lostToday >= 1) {
+    score += 1
+  }
+
+  // 信念已離開懷疑階段。
+  if (stage !== 'skeptical') {
+    score += 1
+  }
+
+  // 關鍵神話物件的接觸深度（上限 2）。
+  let clueScore = 0
+
+  if (
+    flags.star_spawn_idol_examined === true ||
+    clues.has('item_star_spawn_wooden_idol')
+  ) {
+    clueScore += 1
+  }
+
+  if (clues.has('item_deep_sea_gold_brooch')) {
+    clueScore += 1
+  }
+
+  if (clues.has('item_warding_star_mark')) {
+    clueScore += 1
+  }
+
+  return score + Math.min(2, clueScore)
+}
+
+export const witnessRipeThreshold = 4
+
+const stayTurnFlags = [
+  'officer_stay_turn_1',
+  'officer_stay_turn_2',
+  'officer_stay_turn_3',
+  'officer_stay_turn_4',
+  'officer_stay_turn_5',
+]
+
+export type EscortPacingResult = {
+  markFlags?: Record<string, boolean>
+  preempt?: KeeperResponse
+}
+
+export function processEscortPacing(
+  sceneId: string,
+  playerAction: string,
+  selectedAction?: KeeperAction,
+  state?: KeeperWireState,
+): EscortPacingResult | undefined {
+  const flags = state?.flags ?? {}
+
+  if (
+    !isOfficerPresent(state) ||
+    sceneId === '007_landlord_apartment' ||
+    !fourthFloorScenes.has(sceneId)
+  ) {
+    return undefined
+  }
+
+  // 躲藏狀態機優先；被制服時交給模型的拘束流程。
+  if (
+    (flags.player_hiding === true && flags.officer_found_hiding_player !== true) ||
+    flags.officer_player_restrained === true
+  ) {
+    return undefined
+  }
+
+  // 已召喚：本回合不論玩家做什麼都押送上樓。
+  if (flags.officer_escort_summons === true) {
+    const actionText = `${selectedAction?.label ?? ''}\n${playerAction}`
+    const resists = /抗拒|反抗|掙脫|推開|拒絕|不上去|不跟|逃|甩開|掙扎/.test(actionText)
+    const ripe = computeWitnessReadiness(state) >= witnessRipeThreshold
+
+    return { preempt: buildEscortResponse(ripe, resists) }
+  }
+
+  const stayCount = stayTurnFlags.filter((flag) => flags[flag] === true).length
+  const ripe = computeWitnessReadiness(state) >= witnessRipeThreshold
+
+  // 夠熟且問話已有最短鋪陳，或硬上限到（房東今晚必須完成儀式）→ 召喚。
+  if ((ripe && stayCount >= 2) || stayCount >= stayTurnFlags.length) {
+    return { preempt: buildSummonsResponse(ripe) }
+  }
+
+  return { markFlags: { [stayTurnFlags[stayCount]]: true } }
+}
+
+function buildSummonsResponse(ripe: boolean): KeeperResponse {
+  return {
+    actions: [
+      {
+        beliefSignal: 'withhold_judgment',
+        id: 'comply-and-go-upstairs',
+        label: '不再抵抗，跟著他往樓上走',
+      },
+      {
+        beliefSignal: 'rational_investigation',
+        id: 'question-before-upstairs',
+        label: '質問樓上有誰、為什麼要上去',
+      },
+      {
+        beliefSignal: 'withhold_judgment',
+        id: 'resist-going-upstairs',
+        label: '抗拒，表明自己哪裡都不去',
+      },
+    ],
+    checks: [],
+    effects: {
+      setFlags: { officer_escort_summons: true },
+    },
+    narration: [
+      '阿陽腰間的對講機忽然響了一聲。他側過身，把音量壓到最低——但這一次你還是聽見了。那不是勤務頻道的制式對答，是一個沙啞的、上了年紀的聲音，只說了三個字：「帶上來。」',
+      ripe
+        ? '阿陽收起對講機，回頭看你的眼神變了——不再是查案警員打量證人的眼神，而是某種近乎鄭重的注視。「樓上有人想見你。」他說，語氣平穩，「你朋友也在上面。你不是一直想知道發生了什麼事嗎——答案在五樓。」'
+        : '阿陽收起對講機，臉上那層公事化的耐性像退潮一樣消失了。「時間到了。」他說，朝樓梯的方向偏了偏頭，「樓上有人要見你。你朋友也在上面。走吧——這不是商量。」',
+    ],
+    observation: {
+      reason: '房東透過對講機下令，阿陽開始執行押送。',
+      signal: 'none',
+    },
+  }
+}
+
+function buildEscortResponse(ripe: boolean, resists: boolean): KeeperResponse {
+  const arrivalNarration =
+    '五樓的門在樓梯盡頭——那扇你以為永遠鎖著的深色鐵門，此刻正從內側被緩緩拉開。濃重的燭光、鹽與海腥的氣味從門縫裡湧出來。客廳中央，阿宏被綁在椅子上，房東站在他身旁，領口的金飾在燭光下泛著濕潤的綠金色。'
+  const restrainedFlags: Record<string, boolean> = resists
+    ? { officer_player_restrained: true }
+    : {}
+
+  return {
+    actions: [
+      {
+        beliefSignal: 'rational_investigation',
+        id: 'assess-fifth-floor-scene',
+        label: '強迫自己冷靜，快速掃視現場的人與物',
+      },
+      {
+        beliefSignal: 'none',
+        id: 'call-out-to-a-hong',
+        label: '呼喊阿宏的名字，確認他的狀態',
+      },
+      {
+        beliefSignal: 'rational_investigation',
+        id: 'confront-landlord-upstairs',
+        label: '質問房東這一切到底是什麼',
+      },
+    ],
+    checks: [],
+    effects: {
+      nextSceneId: '007_landlord_apartment',
+      sanityCheck: resists
+        ? { eventFlag: 'san_checked_fifth_floor_capture', spec: '0/1' }
+        : { eventFlag: 'san_checked_fifth_floor_ritual_room', spec: '0/1' },
+      setFlags: restrainedFlags,
+    },
+    narration: resists
+      ? [
+          '你往後退，但退路早就不存在了。阿陽的動作快得不像他的體格該有的速度——手腕被扣住、反剪，你的臉頰貼上冰冷的牆面。「何必呢。」他在你耳邊說，語氣甚至稱得上惋惜。你被半拖半押地推上樓梯，每一階都在腳下發出濕木的悶響。',
+          arrivalNarration,
+        ]
+      : ripe
+        ? [
+            '阿陽沒有碰你。他只是側過身，讓出通往樓梯的方向——那個動作不像押送，像迎接。你走在前面，他跟在半步之後，樓梯間的燈一層比一層暗，濕氣一層比一層重。',
+            arrivalNarration,
+          ]
+        : [
+            '阿陽的手落在你的肩膀上，不重，但你清楚地知道那隻手不會再放開。「走吧。」他推著你往樓梯口去，步伐平穩得像例行公事。你想再說什麼，他只是搖頭：「上面等太久了。」',
+            arrivalNarration,
+          ],
+    observation: {
+      reason: resists
+        ? '玩家抗拒押送，被阿陽制伏後強制帶往五樓。'
+        : '玩家被阿陽帶往五樓儀式現場。',
+      signal: 'none',
+    },
+  }
+}
+
 const hidingPattern = /躲|藏身|把自己藏|蜷縮|蜷進|鑽進|鑽到/
 
 const hiddenPhaseActions: KeeperAction[] = [

@@ -151,7 +151,13 @@ describe('阿陽登場後的封鎖', () => {
   })
 })
 
-import { processOfficerDoorPhase, processOfficerHiddenPhase } from '../worker/core/officer'
+import {
+  computeWitnessReadiness,
+  processEscortPacing,
+  processOfficerDoorPhase,
+  processOfficerHiddenPhase,
+  witnessRipeThreshold,
+} from '../worker/core/officer'
 import { handleDeterministicInvestigationAction } from '../worker/core/deterministic'
 
 describe('阿陽門外流程狀態機', () => {
@@ -555,6 +561,117 @@ describe('躲藏狀態機', () => {
     expect(
       processOfficerHiddenPhase('觀察阿陽', undefined, {
         flags: { ...enteredHidden, player_hiding: false, officer_found_hiding_player: true },
+      }),
+    ).toBeUndefined()
+  })
+})
+
+describe('見證者熟成度與押送節奏', () => {
+  const presentFlags = {
+    officer_a_yang_arrived: true,
+    officer_door_opened: true,
+  }
+  const ripeState = {
+    belief: { stage: 'hypothesis' as const },
+    discoveredClues: ['item_deep_sea_gold_brooch'],
+    flags: { ...presentFlags, memory_card_initial_files_opened: true },
+    sanity: { current: 50, lostToday: 3, starting: 55 },
+  }
+
+  it('熟成度計分：讀卡＋動搖＋信念＋線索', () => {
+    expect(computeWitnessReadiness(ripeState)).toBeGreaterThanOrEqual(
+      witnessRipeThreshold,
+    )
+    expect(computeWitnessReadiness({ flags: presentFlags })).toBe(0)
+  })
+
+  it('不熟：只累計在場回合旗標', () => {
+    const result = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '回答他的問題',
+      undefined,
+      { flags: presentFlags },
+    )
+
+    expect(result?.preempt).toBeUndefined()
+    expect(result?.markFlags).toEqual({ officer_stay_turn_1: true })
+  })
+
+  it('夠熟且問話已鋪陳兩回合：對講機召喚', () => {
+    const result = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '繼續說明',
+      undefined,
+      {
+        ...ripeState,
+        flags: {
+          ...ripeState.flags,
+          officer_stay_turn_1: true,
+          officer_stay_turn_2: true,
+        },
+      },
+    )
+
+    expect(result?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
+    expect(result?.preempt?.narration.join('')).toContain('帶上來')
+  })
+
+  it('硬上限：不熟也召喚（房東等不及）', () => {
+    const flags: Record<string, boolean> = { ...presentFlags }
+    for (let i = 1; i <= 5; i += 1) {
+      flags[`officer_stay_turn_${i}`] = true
+    }
+
+    const result = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '再看看客廳',
+      undefined,
+      { flags },
+    )
+
+    expect(result?.preempt?.effects?.setFlags?.officer_escort_summons).toBe(true)
+  })
+
+  it('召喚後任何行動都押送上五樓；抗拒者被制伏', () => {
+    const summoned = {
+      ...ripeState,
+      flags: { ...ripeState.flags, officer_escort_summons: true },
+    }
+
+    const comply = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '跟著他往樓上走',
+      undefined,
+      summoned,
+    )
+    expect(comply?.preempt?.effects?.nextSceneId).toBe('007_landlord_apartment')
+    expect(
+      comply?.preempt?.effects?.setFlags?.officer_player_restrained,
+    ).toBeUndefined()
+
+    const resist = processEscortPacing(
+      '003_friend_apartment_livingroom',
+      '抗拒，表明自己哪裡都不去',
+      undefined,
+      summoned,
+    )
+    expect(resist?.preempt?.effects?.nextSceneId).toBe('007_landlord_apartment')
+    expect(resist?.preempt?.effects?.setFlags?.officer_player_restrained).toBe(true)
+  })
+
+  it('躲藏或受制期間不啟動押送節奏', () => {
+    expect(
+      processEscortPacing('003_friend_bedroom', '繼續躲著', undefined, {
+        flags: {
+          ...presentFlags,
+          officer_entered_with_key: true,
+          player_hiding: true,
+        },
+      }),
+    ).toBeUndefined()
+    expect(
+      processEscortPacing('003_friend_apartment_livingroom', '掙扎', undefined, {
+        flags: { ...presentFlags, officer_player_restrained: true },
       }),
     ).toBeUndefined()
   })
