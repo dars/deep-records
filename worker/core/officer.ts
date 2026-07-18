@@ -495,6 +495,7 @@ function buildSummonsResponse(ripe: boolean, disordered = false): KeeperResponse
     checks: [],
     effects: {
       setFlags: { officer_escort_summons: true },
+      timeCostMinutes: 2,
     },
     narration: disordered
       ? [
@@ -547,6 +548,7 @@ function buildEscortResponse(
     checks: [],
     effects: {
       nextSceneId: '007_landlord_apartment',
+      timeCostMinutes: 4,
       sanityCheck: resists
         ? { eventFlag: 'san_checked_fifth_floor_capture', spec: '0/1' }
         : { eventFlag: 'san_checked_fifth_floor_ritual_room', spec: '0/1' },
@@ -665,6 +667,7 @@ export function processOfficerHiddenPhase(
       checks: [],
       effects: {
         setFlags: { officer_hidden_wait_one: true },
+        timeCostMinutes: 5,
       },
       narration: [
         '你屏住呼吸。腳步聲在屋裡緩慢移動，停頓，再移動——不像在搜索，更像在逐一確認什麼。',

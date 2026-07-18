@@ -86,6 +86,8 @@ export type InvestigationEffects = {
   removeInventory?: string[]
   sanityCheck?: SanityCheckRequest
   sanityDelta?: number
+  // 本回合耗費的遊戲時間（分鐘）；只有 server 端腳本設定，模型不開放。
+  timeCostMinutes?: number
   setFlags?: Record<string, boolean>
   testedMythRuleId?: string
   verifiedMythRuleId?: string
@@ -341,6 +343,7 @@ export function normalizeEffects(value: unknown): InvestigationEffects | undefin
   const effects = value as Record<string, unknown>
   const hitPointDelta = Number(effects.hitPointDelta)
   const sanityDelta = Number(effects.sanityDelta)
+  const timeCostMinutes = Number(effects.timeCostMinutes)
 
   const normalizeId = (input: unknown) =>
     typeof input === 'string' && input.trim() ? input : undefined
@@ -381,6 +384,10 @@ export function normalizeEffects(value: unknown): InvestigationEffects | undefin
     nextSceneId: normalizeId(effects.nextSceneId),
     removeInventory: normalizeStringList(effects.removeInventory),
     sanityDelta: Number.isFinite(sanityDelta) ? sanityDelta : undefined,
+    timeCostMinutes:
+      Number.isFinite(timeCostMinutes) && timeCostMinutes > 0
+        ? Math.min(30, timeCostMinutes)
+        : undefined,
     setFlags:
       mergedSetFlags && Object.keys(mergedSetFlags).length > 0
         ? mergedSetFlags

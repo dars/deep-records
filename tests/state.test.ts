@@ -126,6 +126,11 @@ describe('遊戲時鐘', () => {
     expect(canonicalFromWireState(undefined).clockMinutes).toBe(gameClockStartMinutes)
   })
 
+  it('腳本指定的耗時覆蓋預設值', () => {
+    const next = applyTurnEffects(baseState(), undefined, { timeCostMinutes: 10 })
+    expect(next.clockMinutes).toBe(gameClockStartMinutes + 10)
+  })
+
   it('時刻格式：深夜與凌晨', () => {
     expect(formatGameClock(77)).toBe('深夜 01:17')
     expect(formatGameClock(125)).toBe('深夜 02:05')

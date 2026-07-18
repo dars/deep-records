@@ -98,7 +98,7 @@ async function readRuntimeConfig(env: Env): Promise<KeeperRuntimeConfig> {
   }
 }
 
-const workerVersion = 'keeper-session-2026-07-18-34'
+const workerVersion = 'keeper-session-2026-07-18-35'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -546,10 +546,17 @@ async function runModelTurn(
     usedModel = geminiResult.modelUsed
   }
 
-  // SAN 完全 server 權威：模型只能透過 effects.sanityCheck 申報事件，
-  // 裸 sanityDelta 一律剝除（sentinel 回合曾讓模型自填的損失直接通過）。
-  if (modelResponse?.effects?.sanityDelta !== undefined) {
-    const { sanityDelta: _dropped, ...effects } = modelResponse.effects
+  // SAN 與時間完全 server 權威：模型只能透過 effects.sanityCheck 申報事件，
+  // 裸 sanityDelta 與 timeCostMinutes 一律剝除。
+  if (
+    modelResponse?.effects?.sanityDelta !== undefined ||
+    modelResponse?.effects?.timeCostMinutes !== undefined
+  ) {
+    const {
+      sanityDelta: _droppedDelta,
+      timeCostMinutes: _droppedTime,
+      ...effects
+    } = modelResponse.effects ?? {}
     modelResponse = { ...modelResponse, effects }
   }
   const source: TurnSource = modelResponse ? 'model' : 'fallback'

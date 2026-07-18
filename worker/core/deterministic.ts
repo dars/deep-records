@@ -57,6 +57,7 @@ export function handleDeterministicSceneTransition(
     actions: result.actions,
     checks: [],
     effects: {
+      timeCostMinutes: 2,
       nextSceneId: rule.to,
     },
     narration: result.narration,
@@ -133,6 +134,7 @@ export function handleDeterministicInvestigationAction(
       checks: [],
       effects: {
         addInventory: ['item_friend_apartment_spare_key'],
+        timeCostMinutes: 3,
         setFlags: {
           friend_apartment_spare_key_found: true,
         },
@@ -236,6 +238,7 @@ export function handleDeterministicInvestigationAction(
         checks: [],
         effects: {
           addInventory: ['item_microsd_card_reader'],
+          timeCostMinutes: 3,
         },
         narration: [
           '你的視線掃過書桌。散亂的紙張之間放著一個小巧的 microSD 讀卡機，USB 接頭上還連著一截短短的轉接線——阿宏剪片用的設備，接頭與你的手機相容。',
@@ -351,6 +354,7 @@ export function handleDeterministicInvestigationAction(
     ],
     checks: [],
     effects: {
+        timeCostMinutes: 10,
       discoverClues: ['記憶卡內的四樓影像紀錄'],
       setFlags: {
         memory_card_initial_files_opened: true,
@@ -544,6 +548,7 @@ export function handleScriptedInvestigation(
         nextSceneId: '003_friend_apartment_livingroom',
         sanityDelta:
           stenchCheck && stenchCheck.delta !== 0 ? stenchCheck.delta : undefined,
+        timeCostMinutes: 6,
         setFlags: {
           friend_apartment_wooden_door_opened: true,
           ...(stenchCheck ? { san_checked_seawater_stench: true } : {}),

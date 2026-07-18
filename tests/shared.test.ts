@@ -107,3 +107,12 @@ describe('sanitizeKeeperRequest', () => {
     expect(body.character?.attributes).toEqual({ 觀察: 100, 分析: 0 })
   })
 })
+
+describe('timeCostMinutes 正規化', () => {
+  it('負值與零丟棄、上限 30 分鐘', () => {
+    expect(normalizeEffects({ timeCostMinutes: -5 }).timeCostMinutes).toBeUndefined()
+    expect(normalizeEffects({ timeCostMinutes: 0 }).timeCostMinutes).toBeUndefined()
+    expect(normalizeEffects({ timeCostMinutes: 99 }).timeCostMinutes).toBe(30)
+    expect(normalizeEffects({ timeCostMinutes: 6 }).timeCostMinutes).toBe(6)
+  })
+})

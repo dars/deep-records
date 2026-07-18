@@ -139,7 +139,7 @@ export function applyTurnEffects(
   return {
     ...state,
     belief: reduceBelief(state.belief, observation, beliefUpdate),
-    clockMinutes: state.clockMinutes + gameClockStepMinutes,
+    clockMinutes: state.clockMinutes + (effects?.timeCostMinutes ?? gameClockStepMinutes),
     currentSceneId: nextSceneId,
     discoveredClues: addUnique(state.discoveredClues, effects?.discoverClues),
     ending: effects?.endingId
