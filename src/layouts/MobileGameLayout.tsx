@@ -52,7 +52,7 @@ const clueRecords: Record<string, { body: string; title: string }> = {
   },
   item_deep_sea_gold_brooch: {
     title: '房東領口的深海黃金',
-    body: '一枚綠金色澤、波浪與觸鬚交纏的小型金飾。不同年代的照片裡，房東衣領上都是同一枚；表面永遠帶著像剛從水裡撈起的濕潤光澤。',
+    body: '波浪與觸鬚交纏的小型金飾。不同年代的照片裡，房東衣領上都是同一枚；照片是灰階的，你還不知道它真正的顏色——只有親眼見過的人，才會看到那層像剛從水裡撈起的綠金色濕潤光澤。',
   },
   item_warding_star_mark: {
     title: '放射狀的守護刻痕',
