@@ -623,6 +623,23 @@ export function InvestigationScene({
       audioManager.playSfx('knock')
     }
 
+    // 開門音效（以「本回合首次設定」判斷，避免旗標重複出現時重播）：
+    // 阿陽持鑰匙進門＝插鑰匙開鎖聲；玩家自己開門＝門閂推開聲；
+    // 玩家第一次打開四樓外側鐵門＝鐵門開鎖聲。
+    const becameTrue = (flag: string) =>
+      responseEffects.setFlags?.[flag] === true &&
+      requestState.flags[flag] !== true
+
+    if (becameTrue('officer_entered_with_key')) {
+      audioManager.playSfx('doorKey')
+    } else if (becameTrue('officer_door_opened')) {
+      audioManager.playSfx('doorOpen')
+    }
+
+    if (becameTrue('friend_apartment_iron_door_opened')) {
+      audioManager.playSfx('doorIron')
+    }
+
     // 權威狀態：Durable Object 路徑回傳完整快照，直接採用（server 的 reduce
     // 與本地實作是同一份 shared/state.ts）；無快照時退回本地 reduce。
     const serverState = response.state

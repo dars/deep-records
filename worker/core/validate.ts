@@ -2,6 +2,7 @@
 // 劇本的確定性流程（門鎖、抽屜謎題）在 core/deterministic.ts，於模型呼叫前處理。
 import type {
   InvestigationEffects,
+  KeeperAction,
   KeeperCheck,
   KeeperResponse,
   KeeperWireState,
