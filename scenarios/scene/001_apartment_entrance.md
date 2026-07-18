@@ -91,6 +91,7 @@ references: [character_lin_xian_hong, character_landlord, item_friend_apartment_
     - `item_friend_apartment_spare_key`
   - 玩家可獲得資訊
     - 一排老舊的金屬信箱固定在牆上。部分住戶用奇異筆直接寫上姓氏，有些貼著褪色的廣告貼紙。
+    - 阿宏住處對應的信箱格標著「4樓之2」，蓋子上另用奇異筆補寫了一個褪色的「林」字。
     - 朋友住處所對應的信箱沒有上鎖，縫隙裡塞著幾張廣告傳單與尚未取走的信件。玩家沒有走錯地方，而且這裡看起來仍是朋友目前登記或使用的住處。
     - 撥開最外側的廣告傳單後，玩家能在信箱內側找到 `item_friend_apartment_spare_key`。
     - 鑰匙的外觀、取得方式與使用規則以道具檔案為準。
