@@ -18,7 +18,6 @@ const moodTracks: Record<Exclude<BgmMood, 'silent'>, string[]> = {
   tense: [
     '/assets/music/bgm-tense-1.mp3',
     '/assets/music/bgm-tense-2.mp3',
-    '/assets/music/bgm-tense-3.mp3',
     '/assets/music/bgm-tense-4.mp3',
   ],
 }

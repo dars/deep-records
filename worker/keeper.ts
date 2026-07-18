@@ -1,6 +1,10 @@
 // Worker 入口：路由、rate limit、請求清洗與回合流程編排。
 // 劇本內容一律來自 worker/generated/content.ts（由 scenarios/*.md codegen 產生）。
-import type { KeeperRequestBody, KeeperResponse } from '../shared/keeper'
+import type {
+  KeeperRequestBody,
+  KeeperResponse,
+  KeeperWireState,
+} from '../shared/keeper'
 import {
   genericFallbackNarration,
   sceneFallbackNarration,
