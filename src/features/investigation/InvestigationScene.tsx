@@ -139,6 +139,7 @@ const revealableItemIds = new Set([
   'item_hidden_memory_card',
   'item_star_spawn_wooden_idol',
   'item_warding_star_mark',
+  'item_deep_sea_gold_brooch',
 ])
 
 const diceImageUrl = '/assets/images/dice20.webp'

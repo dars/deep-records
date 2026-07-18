@@ -36,6 +36,10 @@ const wardingStarMarkImageUrl = new URL(
   '../../scenarios/item/warding_star_mark.webp',
   import.meta.url,
 ).href
+const deepSeaGoldBroochImageUrl = new URL(
+  '../../scenarios/item/deep_sea_gold_brooch.webp',
+  import.meta.url,
+).href
 
 const clueRecords: Record<string, { body: string; title: string }> = {
   item_friend_apartment_spare_key: {
@@ -79,6 +83,7 @@ const itemLabels: Record<string, string> = {
   item_microsd_card_reader: 'microSD 讀卡機',
   item_star_spawn_wooden_idol: '觸手造型木雕',
   item_warding_star_mark: '放射狀的守護刻痕',
+  item_deep_sea_gold_brooch: '房東領口的深海黃金',
 }
 
 const itemRevealRecords: Record<string, ItemRevealRecord> = {
@@ -105,6 +110,12 @@ const itemRevealRecords: Record<string, ItemRevealRecord> = {
     imageUrl: wardingStarMarkImageUrl,
     subtitle: '發現神秘符號',
     title: itemLabels.item_warding_star_mark,
+  },
+  item_deep_sea_gold_brooch: {
+    id: 'item_deep_sea_gold_brooch',
+    imageUrl: deepSeaGoldBroochImageUrl,
+    subtitle: '發現異常細節',
+    title: itemLabels.item_deep_sea_gold_brooch,
   },
 }
 
