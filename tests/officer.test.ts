@@ -306,15 +306,50 @@ describe('場景脫鉤修復', () => {
     expect(response).toBeUndefined()
   })
 
-  it('阿陽登場後可從建築內任何位置被押送至五樓（含一樓被捕）', () => {
-    const arrived = { flags: { officer_a_yang_arrived: true } }
+  it('召喚或受制後可從建築內任何位置被押送至五樓（含一樓被捕）', () => {
+    const summoned = {
+      flags: { officer_a_yang_arrived: true, officer_escort_summons: true },
+    }
+    const restrained = {
+      flags: { officer_a_yang_arrived: true, officer_player_restrained: true },
+    }
 
     expect(
-      validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', arrived),
+      validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', summoned),
     ).toBe('007_landlord_apartment')
     expect(
-      validateNextSceneId('007_landlord_apartment', '001_apartment_entrance', arrived),
+      validateNextSceneId('007_landlord_apartment', '001_apartment_entrance', restrained),
     ).toBe('007_landlord_apartment')
+  })
+
+  it('登場但未召喚：模型不得自行推進五樓（硬守門）', () => {
+    expect(
+      validateNextSceneId('007_landlord_apartment', '003_friend_bedroom', {
+        flags: { officer_a_yang_arrived: true },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('總回合數保底：沒有任何里程碑也會觸發登場', () => {
+    const response = handleOfficerArrival(
+      '003_friend_apartment_livingroom',
+      '站在窗邊看雨',
+      undefined,
+      { flags: {} },
+      12,
+    )
+
+    expect(response?.effects?.setFlags?.officer_a_yang_arrived).toBe(true)
+
+    expect(
+      handleOfficerArrival(
+        '003_friend_apartment_livingroom',
+        '站在窗邊看雨',
+        undefined,
+        { flags: {} },
+        11,
+      ),
+    ).toBeUndefined()
   })
 
   it('樓梯間登場視為正面接觸（officer_door_opened 一併設下）', () => {

@@ -52,11 +52,17 @@ export function isPlayerRestrained(state?: KeeperWireState): boolean {
   return state?.flags?.officer_player_restrained === true
 }
 
+// 登場保底：不論調查深度，總回合數到了阿陽就會來——
+// 「鄰居反映怪聲」本來就與玩家做了什麼無關，他照自己的時間表出現。
+// 這同時是漂流玩家的節奏保證與模型呼叫的成本上限。
+export const scheduledArrivalTurn = 12
+
 export function handleOfficerArrival(
   sceneId: string,
   playerAction: string,
   selectedAction?: KeeperAction,
   state?: KeeperWireState,
+  turnIndex?: number,
 ): KeeperResponse | undefined {
   if (hasOfficerArrived(state) || !fourthFloorScenes.has(sceneId)) {
     return undefined
@@ -70,7 +76,9 @@ export function handleOfficerArrival(
   const callsPolice =
     intent?.type === 'call_police' ||
     (callsPolicePattern.test(actionText) && !isLeaving)
-  const arrivalDue = countSignificantInvestigations(state) >= 3
+  const arrivalDue =
+    countSignificantInvestigations(state) >= 3 ||
+    (turnIndex ?? 0) >= scheduledArrivalTurn
 
   if (!callsPolice && !arrivalDue) {
     return undefined

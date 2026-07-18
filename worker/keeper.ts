@@ -59,7 +59,7 @@ export type Env = {
   TTS_RATE_LIMITER?: RateLimiter
 }
 
-const workerVersion = 'keeper-session-2026-07-18-24'
+const workerVersion = 'keeper-session-2026-07-18-25'
 
 // 前端站台在 deep-records.pages.dev（含 preview deployment 子網域）。
 // workers.dev 上的同源請求不需要 CORS。
@@ -283,7 +283,13 @@ export async function executeKeeperTurn(
     // 召喚與押送搶佔（熟成或硬上限到時）。
     escortPacing?.preempt ??
     // 阿陽登場條件成立時搶佔本回合行動（跨過第二個不可逆門檻）。
-    handleOfficerArrival(sceneId, playerAction, body.selectedAction, body.state)
+    handleOfficerArrival(
+      sceneId,
+      playerAction,
+      body.selectedAction,
+      body.state,
+      body.turnIndex,
+    )
 
   if (!response) {
     response = handleDeterministicSceneTransition(

@@ -81,10 +81,15 @@ describe('validateNextSceneId', () => {
     expect(validateNextSceneId('not_a_scene', '001_apartment_entrance')).toBeUndefined()
   })
 
-  it('允許從四樓門外進入五樓終局場景', () => {
-    expect(validateNextSceneId('007_landlord_apartment', '002_friend_apartment')).toBe(
-      '007_landlord_apartment',
-    )
+  it('五樓轉場需要登場＋召喚（或受制）', () => {
+    expect(
+      validateNextSceneId('007_landlord_apartment', '002_friend_apartment'),
+    ).toBeUndefined()
+    expect(
+      validateNextSceneId('007_landlord_apartment', '002_friend_apartment', {
+        flags: { officer_a_yang_arrived: true, officer_escort_summons: true },
+      }),
+    ).toBe('007_landlord_apartment')
   })
 })
 

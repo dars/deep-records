@@ -9,6 +9,7 @@
 export const systemFlags = [
   // 阿陽登場與門外狀態機
   'officer_a_yang_arrived',
+  'officer_called_by_player',
   'officer_wait_one',
   'officer_knock_escalated',
   'officer_door_opened',

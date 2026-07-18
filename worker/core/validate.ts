@@ -83,14 +83,17 @@ export function validateNextSceneId(
     return undefined
   }
 
-  // 阿陽登場後，玩家可能在建築內任何位置（含逃到一樓被捕）被帶往／押送五樓，
-  // 不受一般連通限制（connects_to 描述的是玩家自行移動的路徑）。
-  if (
-    nextSceneId === '007_landlord_apartment' &&
-    sceneId !== '000_prologue' &&
-    hasOfficerArrived(state)
-  ) {
-    return nextSceneId
+  // 押送五樓只在系統召喚（officer_escort_summons）或玩家受制後放行：
+  // 模型不得跳過召喚流程自行推進五樓（尾端提醒是軟約束，這裡是硬守門）。
+  if (nextSceneId === '007_landlord_apartment') {
+    const flags = state?.flags ?? {}
+    const escortAuthorized =
+      flags.officer_escort_summons === true ||
+      flags.officer_player_restrained === true
+
+    return sceneId !== '000_prologue' && hasOfficerArrived(state) && escortAuthorized
+      ? nextSceneId
+      : undefined
   }
 
   const connectsTo = scenes[sceneId]?.connectsTo ?? []
