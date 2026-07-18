@@ -258,3 +258,51 @@ describe('enforceDiscoveryConstraints：記憶卡提前洩漏防護', () => {
     expect(constrained.effects?.discoverClues).toEqual([])
   })
 })
+
+describe('尋找讀卡設備不再死循環', () => {
+  const stateWithCard = {
+    flags: {},
+    inventory: ['item_hidden_memory_card', '智慧型手機'],
+  }
+
+  it('在臥室尋找設備：直接找到書桌上的讀卡機', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_bedroom',
+      '尋找能讀取 microSD 的相容設備',
+      { id: 'find-compatible-card-reader', label: '尋找能讀取 microSD 的相容設備' },
+      stateWithCard,
+    )
+
+    expect(response?.effects?.addInventory).toContain('item_microsd_card_reader')
+    expect(response?.actions.map((a) => a.id)).not.toContain(
+      'find-compatible-card-reader',
+    )
+  })
+
+  it('在客廳尋找設備：指路去臥室書桌，不重複同一選項', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_apartment_livingroom',
+      '尋找能讀取 microSD 的相容設備',
+      { id: 'find-compatible-card-reader', label: '尋找能讀取 microSD 的相容設備' },
+      stateWithCard,
+    )
+
+    expect(response?.effects?.addInventory).toBeUndefined()
+    const ids = response?.actions.map((a) => a.id) ?? []
+    expect(ids).toContain('go-to-bedroom-for-reader')
+    expect(ids).not.toContain('find-compatible-card-reader')
+    const moveAction = response?.actions.find((a) => a.id === 'go-to-bedroom-for-reader')
+    expect(moveAction?.intent).toEqual({ to: '003_friend_bedroom', type: 'move' })
+  })
+
+  it('首次讀卡提示（非搜尋動作）維持原行為', () => {
+    const response = handleDeterministicInvestigationAction(
+      '003_friend_apartment_livingroom',
+      '嘗試讀取記憶卡的內容',
+      undefined,
+      stateWithCard,
+    )
+
+    expect(response?.actions.map((a) => a.id)).toContain('find-compatible-card-reader')
+  })
+})

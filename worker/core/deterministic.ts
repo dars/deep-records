@@ -202,6 +202,68 @@ export function handleDeterministicInvestigationAction(
   }
 
   if (!usesAvailableDevice) {
+    // 玩家主動尋找讀取設備：這必須是有生產力的動作，不得繞回同一個提示。
+    // 讀卡機在臥室書桌上（item_microsd_card_reader 的 initial_location）。
+    const isSearchingForDevice =
+      selectedAction?.id === 'find-compatible-card-reader' ||
+      /(?:尋找|搜|找).*(?:設備|讀卡|轉接|讀取)/i.test(actionText)
+
+    if (isSearchingForDevice && sceneId === '003_friend_bedroom') {
+      return {
+        actions: [
+          {
+            beliefSignal: 'rational_investigation',
+            id: 'connect-reader-to-phone',
+            label: '把讀卡機接上手機，讀取記憶卡',
+          },
+          {
+            beliefSignal: 'withhold_judgment',
+            id: 'continue-bedroom-search',
+            label: '先收好讀卡機，繼續調查臥室',
+          },
+        ],
+        checks: [],
+        effects: {
+          addInventory: ['item_microsd_card_reader'],
+        },
+        narration: [
+          '你的視線掃過書桌。散亂的紙張之間放著一個小巧的 microSD 讀卡機，USB 接頭上還連著一截短短的轉接線——阿宏剪片用的設備，接頭與你的手機相容。',
+          '你把它拿在手裡。就是它了：那張記憶卡裡的東西，現在只隔著一個插槽的距離。',
+        ],
+        observation: {
+          reason: '玩家在臥室書桌上找到 microSD 讀卡機。',
+          signal: 'rational_investigation',
+        },
+      }
+    }
+
+    if (isSearchingForDevice) {
+      return {
+        actions: [
+          {
+            beliefSignal: 'rational_investigation',
+            id: 'go-to-bedroom-for-reader',
+            intent: { to: '003_friend_bedroom', type: 'move' },
+            label: '前往臥室，檢查阿宏工作的書桌',
+          },
+          {
+            beliefSignal: 'withhold_judgment',
+            id: 'keep-memory-card-for-later',
+            label: '先收好記憶卡，繼續調查眼前的空間',
+          },
+        ],
+        checks: [],
+        narration: [
+          '你環顧眼前的空間，沒有看到讀卡機、轉接器或任何能直接插上 microSD 的東西。',
+          '不過你記得阿宏是靠剪片維生的人。這類小設備他一定有，而且多半收在他工作的地方——臥室那張書桌，是最值得檢查的位置。',
+        ],
+        observation: {
+          reason: '玩家在目前房間尋找讀取設備未果，線索指向臥室書桌。',
+          signal: 'rational_investigation',
+        },
+      }
+    }
+
     return {
       actions: [
         {
