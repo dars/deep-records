@@ -820,6 +820,11 @@ export function InvestigationScene({
   // 調查進行中，關閉/重整/離開頁面前先跳確認視窗（瀏覽器原生對話框）。
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // 選單的「重新整理」是玩家主動操作，不需要再確認一次。
+      if ((window as { __drSkipUnloadGuard?: boolean }).__drSkipUnloadGuard) {
+        return
+      }
+
       if (!investigationState.ending) {
         event.preventDefault()
         event.returnValue = ''

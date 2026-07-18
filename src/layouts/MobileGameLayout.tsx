@@ -420,6 +420,21 @@ export function MobileGameLayout({ children, title }: MobileGameLayoutProps) {
                 <small>{Math.round(bgmVolume * 100)}%</small>
               </label>
 
+              <button
+                className="menu-reload-button"
+                type="button"
+                onClick={() => {
+                  // 主畫面 standalone 模式沒有瀏覽器重整鈕；由此重新整理。
+                  // 進度隨回合即時存檔，重整後自動續玩；跳過離開確認。
+                  ;(window as { __drSkipUnloadGuard?: boolean }).__drSkipUnloadGuard =
+                    true
+                  window.location.reload()
+                }}
+              >
+                <span aria-hidden="true">↻</span>　重新整理
+              </button>
+              <p className="menu-reload-note">進度已即時保存，重整後自動續玩</p>
+
               <footer className="menu-panel-footer">
                 <p>版本 v{__APP_VERSION__}</p>
                 <p className="menu-studio">code4soul</p>

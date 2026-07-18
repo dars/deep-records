@@ -2829,3 +2829,24 @@
   cursor: pointer;
   padding: 4px 6px;
 }
+
+/* 選單：重新整理。 */
+.menu-reload-button {
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(148, 190, 170, 0.25);
+  border-radius: 9px;
+  background: rgba(20, 38, 33, 0.4);
+  color: rgba(206, 218, 205, 0.88);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.menu-reload-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(163, 184, 170, 0.5);
+  text-align: center;
+  letter-spacing: 0.06em;
+}
