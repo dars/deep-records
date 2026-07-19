@@ -388,11 +388,17 @@ export function handleDeterministicInvestigationAction(
   }
 }
 
+// 額度／頻率耗盡時附加的 OOC 提示：讓玩家知道這不是劇情停滯，
+// 是守密人（模型）暫時打不通，而不是故事本身卡住。
+const quotaExhaustedNotice =
+  '（守密人暫時斷線，額度冷卻中，請稍後再嘗試同樣的行動。）'
+
 export function createKeeperFallbackResponse(
   sceneId: string,
   playerAction: string,
   sceneNarration: Record<string, string[]>,
   genericNarration: string[],
+  quotaExhausted = false,
 ): KeeperResponse {
   if (
     /(?:打電話|撥打|撥電話|致電|聯絡|打給)/.test(playerAction) &&
@@ -447,6 +453,7 @@ export function createKeeperFallbackResponse(
       narration: [
         '電話撥出去後，聽筒裡只傳來規律而單調的等待音。鈴聲持續了很久，阿宏始終沒有接聽，也沒有把電話按掉。',
         '通話最後自行轉入無人接聽。深夜的雨聲重新佔據四周；他才剛傳訊息要你過來，現在卻像突然失去了回應能力。',
+        ...(quotaExhausted ? [quotaExhaustedNotice] : []),
       ],
       observation: {
         reason: '玩家先嘗試以日常通訊方式確認朋友狀況。',
@@ -459,7 +466,10 @@ export function createKeeperFallbackResponse(
     actions: [],
     checks: [],
     effects: {},
-    narration: sceneNarration[sceneId] ?? genericNarration,
+    narration: [
+      ...(sceneNarration[sceneId] ?? genericNarration),
+      ...(quotaExhausted ? [quotaExhaustedNotice] : []),
+    ],
     observation: {
       signal: 'none',
     },

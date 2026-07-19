@@ -1,9 +1,50 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createKeeperFallbackResponse,
   handleDeterministicInvestigationAction,
   handleDeterministicSceneTransition,
 } from '../worker/core/deterministic'
 import { inferEnding } from '../worker/core/ending'
+
+describe('createKeeperFallbackResponse：額度耗盡提示', () => {
+  const sceneNarration = { '003_friend_apartment_livingroom': ['一般罐頭敘事。'] }
+  const genericNarration = ['通用罐頭敘事。']
+
+  it('quotaExhausted 為 true 時附加 OOC 提示（一般場景分支）', () => {
+    const response = createKeeperFallbackResponse(
+      '003_friend_apartment_livingroom',
+      '繼續調查沙發',
+      sceneNarration,
+      genericNarration,
+      true,
+    )
+
+    expect(response.narration.join('')).toContain('額度冷卻中')
+  })
+
+  it('quotaExhausted 為 false（預設）時不附加提示', () => {
+    const response = createKeeperFallbackResponse(
+      '003_friend_apartment_livingroom',
+      '繼續調查沙發',
+      sceneNarration,
+      genericNarration,
+    )
+
+    expect(response.narration.join('')).not.toContain('額度冷卻中')
+  })
+
+  it('quotaExhausted 為 true 時，未接聽電話分支同樣附加提示', () => {
+    const response = createKeeperFallbackResponse(
+      '003_friend_apartment_livingroom',
+      '打電話給阿宏確認狀況',
+      sceneNarration,
+      genericNarration,
+      true,
+    )
+
+    expect(response.narration.join('')).toContain('額度冷卻中')
+  })
+})
 
 describe('handleDeterministicSceneTransition', () => {
   it('從一樓上樓觸發 002 轉場', () => {

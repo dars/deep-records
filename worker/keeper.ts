@@ -557,6 +557,9 @@ async function runModelTurn(
   const effectiveProvider = runtimeConfig.provider ?? env.KEEPER_PROVIDER
   let modelResponse: KeeperResponse | undefined
   let usedModel: string
+  // Gemini 重試耗盡後仍是 429：額度或頻率限制用盡，回合降級為罐頭敘事時
+  // 額外附上一句 OOC 提示，與其他連線層失敗（逾時、地區封鎖）區分。
+  let quotaExhausted = false
 
   if (effectiveProvider === 'ollama' && env.OLLAMA_URL) {
     const ollamaResult = await callOllamaKeeper(env, prompt, runtimeConfig.ollamaModel)
@@ -568,6 +571,7 @@ async function runModelTurn(
       const geminiResult = await callGeminiKeeper(env, prompt, geminiModel)
       modelResponse = geminiResult.response
       usedModel = geminiResult.modelUsed
+      quotaExhausted = geminiResult.quotaExhausted === true
     }
   } else {
     // 混合路由：五樓與強制高潮回合是玩家記憶最深的段落，
@@ -580,6 +584,7 @@ async function runModelTurn(
     const geminiResult = await callGeminiKeeper(env, prompt, model)
     modelResponse = geminiResult.response
     usedModel = geminiResult.modelUsed
+    quotaExhausted = geminiResult.quotaExhausted === true
   }
 
   // SAN 與時間完全 server 權威：模型只能透過 effects.sanityCheck 申報事件，
@@ -603,6 +608,7 @@ async function runModelTurn(
       playerAction,
       sceneFallbackNarration,
       genericFallbackNarration,
+      quotaExhausted,
     )
   const constrainedResponse = enforceDiscoveryConstraints(
     removeRepeatedActions(baseResponse, body.history),

@@ -120,10 +120,23 @@ type GeminiEnv = {
   GEMINI_API_KEY: string
 }
 
+// 帶狀態碼的錯誤，讓上層能分辨「額度／頻率耗盡」跟其他連線層失敗。
+export class GeminiHttpError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 export type GeminiKeeperResult = {
   // 實際完成呼叫的模型（指定模型不存在時保險絲會退回預設模型）。
   modelUsed: string
   response: KeeperResponse | undefined
+  // 重試耗盡後仍是 429（RESOURCE_EXHAUSTED）：額度或頻率限制用盡，
+  // 與其他連線層失敗（逾時、5xx、地區封鎖）分開標記。
+  quotaExhausted?: boolean
 }
 
 export async function callGeminiKeeper(
@@ -146,7 +159,11 @@ export async function callGeminiKeeper(
         'keeper_model_unreachable',
         error instanceof Error ? error.message : error,
       )
-      return { modelUsed, response: undefined }
+      return {
+        modelUsed,
+        quotaExhausted: error instanceof GeminiHttpError && error.status === 429,
+        response: undefined,
+      }
     }
 
     modelUsed = generated.modelUsed
@@ -305,7 +322,10 @@ async function generateGeminiText(
           continue
         }
 
-        lastError = new Error(`Gemini HTTP ${response.status}: ${errorBody.slice(0, 500)}`)
+        lastError = new GeminiHttpError(
+          response.status,
+          `Gemini HTTP ${response.status}: ${errorBody.slice(0, 500)}`,
+        )
 
         if (retryableStatuses.has(response.status)) {
           attempts += 1
